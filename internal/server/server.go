@@ -2,60 +2,52 @@ package server
 
 import (
 	"context"
-	"go-metrics/internal/router"
 	"net/http"
 	"time"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/go-chi/chi"
 )
+
+type HTTPServer interface {
+	ListenAndServe() error
+	Shutdown(ctx context.Context) error
+}
 
 type Addresser interface {
 	GetAddress() string
 }
 
-type Router interface {
-	AddHandler(method, path string, handler httprouter.Handle)
-	GetRoutes() []router.Route
-	ServerHTTP() http.Handler
+type Server struct {
+	server HTTPServer
+	router chi.Router
 }
 
-type HTTPServer struct {
-	server *http.Server
-	router Router
-}
-
-func NewHTTPServer(a Addresser) *HTTPServer {
-	return &HTTPServer{
+func NewServer(a Addresser) *Server {
+	rtr := chi.NewRouter()
+	return &Server{
 		server: &http.Server{
 			Addr:    a.GetAddress(),
-			Handler: http.NewServeMux(),
+			Handler: rtr,
 		},
-		router: router.NewRouter(),
+		router: rtr,
 	}
 }
 
-func (s *HTTPServer) AddRouter(rtr Router) {
-	if s.router == nil {
-		s.router = rtr
-		s.server.Handler = rtr.ServerHTTP()
-		return
-	}
-	for _, r := range rtr.GetRoutes() {
-		s.router.AddHandler(r.Method, r.Path, r.Handler)
-	}
-	s.server.Handler = s.router.ServerHTTP()
+func (s *Server) AddRouter(r chi.Router) {
+	s.router.Mount("/", r)
 }
 
-func (s *HTTPServer) Start(ctx context.Context) error {
-	go func() {
-		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+func (s *Server) Start(ctx context.Context) error {
+	go func() error {
+		err := s.server.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			return err
 		}
+		return nil
 	}()
 	<-ctx.Done()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := s.server.Shutdown(shutdownCtx); err != nil {
-		return err
-	}
+	s.server.Shutdown(shutdownCtx)
 	return nil
 }
