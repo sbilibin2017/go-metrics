@@ -46,6 +46,12 @@ func handleMetricUpdatePathError(w http.ResponseWriter, err error) {
 	} else if errors.Is(err, validation.ErrEmptyValue) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	} else if errors.Is(err, validation.ErrInvalidCounterValue) {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	} else if errors.Is(err, validation.ErrInvalidGaugeValue) {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	} else {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
