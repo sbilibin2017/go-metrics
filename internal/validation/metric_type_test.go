@@ -36,12 +36,12 @@ func TestValidateType(t *testing.T) {
 		{
 			name:     "Type with mixed case 'Gauge'",
 			input:    "Gauge",
-			expected: ErrInvalidType,
+			expected: nil,
 		},
 		{
 			name:     "Type with mixed case 'Counter'",
-			input:    domain.Counter,
-			expected: ErrInvalidType,
+			input:    "Counter",
+			expected: nil,
 		},
 	}
 

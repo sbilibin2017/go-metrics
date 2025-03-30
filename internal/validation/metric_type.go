@@ -3,6 +3,7 @@ package validation
 import (
 	"errors"
 	"go-metrics/internal/domain"
+	"strings"
 )
 
 var (
@@ -10,8 +11,10 @@ var (
 )
 
 func ValidateType(mType string) error {
-	if mType == "" || (mType != domain.Gauge && mType != domain.Counter) {
+	mType = strings.ToLower(mType)
+	if mType != domain.Gauge && mType != domain.Counter {
 		return ErrInvalidType
 	}
 	return nil
+
 }
