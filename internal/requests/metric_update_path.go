@@ -36,10 +36,6 @@ func (r *MetricUpdatePathRequest) Validate() error {
 			return err
 		}
 	}
-	err = validation.ValidateValue(r.Value)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -49,10 +45,16 @@ func (r *MetricUpdatePathRequest) ToDomain() (*domain.Metric, error) {
 		Type: r.Type,
 	}
 	if r.Type == domain.Gauge {
-		value, _ := converters.ConvertToFloat64(r.Value)
+		value, err := converters.ConvertToFloat64(r.Value)
+		if err != nil {
+			return nil, err
+		}
 		metric.Value = value
 	} else if r.Type == domain.Counter {
-		delta, _ := converters.ConvertToInt64(r.Value)
+		delta, err := converters.ConvertToInt64(r.Value)
+		if err != nil {
+			return nil, err
+		}
 		metric.Delta = delta
 	}
 	return metric, nil
