@@ -1,4 +1,4 @@
-package engines
+package unitofwork
 
 import "context"
 
@@ -9,5 +9,5 @@ func NewMemoryUnitOfWork() *MemoryUnitOfWork {
 }
 
 func (m *MemoryUnitOfWork) Do(ctx context.Context, operation func() error) error {
-	return nil
+	return operation()
 }
