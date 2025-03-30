@@ -8,39 +8,32 @@ import (
 	"go-metrics/internal/validation"
 	"net/http"
 
-	"github.com/julienschmidt/httprouter"
+	"github.com/go-chi/chi"
 )
 
 type MetricUpdatePathUsecase interface {
 	Execute(ctx context.Context, req *requests.MetricUpdatePathRequest) (*responses.MetricUpdatePathResponse, error)
 }
 
-type MetricUpdatePathHandler struct {
-	uc MetricUpdatePathUsecase
-}
-
-func NewMetricUpdatePathHandler(uc MetricUpdatePathUsecase) *MetricUpdatePathHandler {
-	return &MetricUpdatePathHandler{uc: uc}
-}
-
-func (h *MetricUpdatePathHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ps := httprouter.ParamsFromContext(r.Context())
-	Type := ps.ByName("type")
-	Name := ps.ByName("name")
-	Value := ps.ByName("value")
-	req := &requests.MetricUpdatePathRequest{
-		Type:  Type,
-		Name:  Name,
-		Value: Value,
+func MetricUpdatePathHandler(uc MetricUpdatePathUsecase) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		Type := chi.URLParam(r, "type")
+		Name := chi.URLParam(r, "name")
+		Value := chi.URLParam(r, "value")
+		req := &requests.MetricUpdatePathRequest{
+			Type:  Type,
+			Name:  Name,
+			Value: Value,
+		}
+		resp, err := uc.Execute(r.Context(), req)
+		if err != nil {
+			handleMetricUpdatePathError(w, err)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write(resp.ToResponse())
 	}
-	resp, err := h.uc.Execute(r.Context(), req)
-	if err != nil {
-		handleMetricUpdatePathError(w, err)
-		return
-	}
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusOK)
-	w.Write(resp.ToResponse())
 }
 
 func handleMetricUpdatePathError(w http.ResponseWriter, err error) {
