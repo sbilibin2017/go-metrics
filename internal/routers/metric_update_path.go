@@ -1,13 +1,15 @@
 package routers
 
 import (
-	"go-metrics/internal/router"
-
 	"github.com/julienschmidt/httprouter"
 )
 
+type Router interface {
+	AddHandler(method, path string, handler httprouter.Handle)
+}
+
 func RegisterMetricUpdatePathRouter(
-	r *router.Router,
+	r Router,
 	h httprouter.Handle,
 ) {
 	r.AddHandler(
