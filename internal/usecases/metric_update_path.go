@@ -3,6 +3,7 @@ package usecases
 import (
 	"context"
 	"go-metrics/internal/domain"
+	"go-metrics/internal/requests"
 
 	"go-metrics/internal/responses"
 )
@@ -30,7 +31,7 @@ func NewMetricUpdatePathUsecase(
 
 func (uc *MetricUpdatePathUsecase) Execute(
 	ctx context.Context,
-	req MetricUpdatePathRequest,
+	req *requests.MetricUpdatePathRequest,
 ) (*responses.MetricUpdatePathResponse, error) {
 	err := req.Validate()
 	if err != nil {
