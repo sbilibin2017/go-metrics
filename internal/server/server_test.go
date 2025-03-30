@@ -47,6 +47,8 @@ func TestAddRouter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected no error but got: %v", err)
 	}
+	defer resp.Body.Close() // Close the response body
+
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -107,14 +109,14 @@ func (m *MockHTTPServer) ListenAndServe() error {
 	if m.ListenAndServeFunc != nil {
 		return m.ListenAndServeFunc()
 	}
-	return nil
+	return nil // Default to no error
 }
 
 func (m *MockHTTPServer) Shutdown(ctx context.Context) error {
 	if m.ShutdownFunc != nil {
 		return m.ShutdownFunc(ctx)
 	}
-	return nil
+	return nil // Default to no error
 }
 
 func TestServerStartError(t *testing.T) {
