@@ -1,20 +1,14 @@
 package routers
 
 import (
-	"github.com/julienschmidt/httprouter"
+	"net/http"
+
+	"github.com/go-chi/chi"
 )
 
-type Router interface {
-	AddHandler(method, path string, handler httprouter.Handle)
-}
-
 func RegisterMetricUpdatePathRouter(
-	r Router,
-	h httprouter.Handle,
+	r chi.Router,
+	h http.HandlerFunc,
 ) {
-	r.AddHandler(
-		"POST",
-		"/update/:type/:name/:value",
-		h,
-	)
+	r.Post("/update/{type}/{name}/{value}", h)
 }
