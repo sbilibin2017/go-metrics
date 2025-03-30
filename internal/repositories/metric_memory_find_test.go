@@ -10,9 +10,9 @@ import (
 
 func TestMetricMemoryFindRepository_Find(t *testing.T) {
 	data := map[domain.MetricID]*domain.Metric{
-		{ID: "metric1", Type: "gauge"}:   {ID: "metric1", Type: "gauge", Value: func() *float64 { v := 42.5; return &v }()},
-		{ID: "metric2", Type: "counter"}: {ID: "metric2", Type: "counter", Delta: func() *int64 { v := int64(10); return &v }()},
-		{ID: "metric3", Type: "gauge"}:   {ID: "metric3", Type: "gauge", Value: func() *float64 { v := 15.7; return &v }()},
+		{ID: "metric1", Type: "gauge"}:        {ID: "metric1", Type: "gauge", Value: func() *float64 { v := 42.5; return &v }()},
+		{ID: "metric2", Type: domain.Counter}: {ID: "metric2", Type: domain.Counter, Delta: func() *int64 { v := int64(10); return &v }()},
+		{ID: "metric3", Type: "gauge"}:        {ID: "metric3", Type: "gauge", Value: func() *float64 { v := 15.7; return &v }()},
 	}
 
 	repo := NewMetricMemoryFindRepository(data)
@@ -26,11 +26,11 @@ func TestMetricMemoryFindRepository_Find(t *testing.T) {
 			name: "FindExistingMetrics",
 			filters: []domain.MetricID{
 				{ID: "metric1", Type: "gauge"},
-				{ID: "metric2", Type: "counter"},
+				{ID: "metric2", Type: domain.Counter},
 			},
 			expected: map[domain.MetricID]*domain.Metric{
-				{ID: "metric1", Type: "gauge"}:   data[domain.MetricID{ID: "metric1", Type: "gauge"}],
-				{ID: "metric2", Type: "counter"}: data[domain.MetricID{ID: "metric2", Type: "counter"}],
+				{ID: "metric1", Type: "gauge"}:        data[domain.MetricID{ID: "metric1", Type: "gauge"}],
+				{ID: "metric2", Type: domain.Counter}: data[domain.MetricID{ID: "metric2", Type: domain.Counter}],
 			},
 		},
 		{

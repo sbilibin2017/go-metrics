@@ -17,7 +17,7 @@ func TestMetricMemorySaveRepository_Save(t *testing.T) {
 
 	metrics := []*domain.Metric{
 		{ID: "metric1", Type: "gauge", Value: &value1},
-		{ID: "metric2", Type: "counter", Delta: &delta2},
+		{ID: "metric2", Type: domain.Counter, Delta: &delta2},
 	}
 
 	err := repo.Save(context.Background(), metrics)
