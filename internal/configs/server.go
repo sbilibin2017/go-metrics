@@ -7,3 +7,7 @@ type ServerConfig struct {
 	FileStoragePath string
 	Restore         string
 }
+
+func (c *ServerConfig) GetAddress() string {
+	return c.Address
+}
