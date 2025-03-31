@@ -4,6 +4,7 @@ import (
 	"go-metrics/internal/configs"
 	"go-metrics/internal/domain"
 	"go-metrics/internal/handlers"
+	"go-metrics/internal/logger"
 	"go-metrics/internal/repositories"
 	"go-metrics/internal/routers"
 	"go-metrics/internal/server"
@@ -13,6 +14,9 @@ import (
 )
 
 func NewServer(config *configs.ServerConfig) *server.Server {
+	logger.Init()
+	defer logger.Logger.Sync()
+
 	data := make(map[domain.MetricID]*domain.Metric)
 
 	saveRepo := repositories.NewMetricMemorySaveRepository(data)
