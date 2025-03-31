@@ -113,15 +113,9 @@ func (ma *MetricAgent) sendMetrics(ctx context.Context, metrics []domain.Metric)
 		return address
 	}
 	address := normalizeAddress(ma.config.Address)
-
-	// Отправляем метрики напрямую без использования промежуточной карты
 	for _, metric := range metrics {
 		url := address + "/update/"
-
-		// Логируем метрику, которую отправляем
 		log.Printf("Sending metric %s with data: %+v", metric.ID, metric)
-
-		// Отправляем метрику с помощью resty
 		resp, err := ma.client.R().
 			SetContext(ctx).
 			SetHeader("Content-Type", "application/json").
@@ -132,7 +126,6 @@ func (ma *MetricAgent) sendMetrics(ctx context.Context, metrics []domain.Metric)
 			log.Printf("Error sending metric %s: %v", metric.ID, err)
 			continue
 		}
-
 		log.Printf("Successfully sent metric %s, status code: %d", metric.ID, resp.StatusCode())
 		if resp.StatusCode() != 200 {
 			log.Printf("Response body: %s", resp.String())

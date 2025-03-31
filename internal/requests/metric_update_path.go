@@ -8,8 +8,8 @@ import (
 
 type MetricUpdatePathRequest struct {
 	Type  string
-	name  string
-	value string
+	Name  string
+	Value string
 }
 
 func NewMetricUpdatePathRequest(
@@ -19,8 +19,8 @@ func NewMetricUpdatePathRequest(
 ) *MetricUpdatePathRequest {
 	return &MetricUpdatePathRequest{
 		Type:  Type,
-		name:  name,
-		value: value,
+		Name:  name,
+		Value: value,
 	}
 }
 
@@ -29,17 +29,17 @@ func (r *MetricUpdatePathRequest) Validate() error {
 	if err != nil {
 		return err
 	}
-	err = validation.ValidateName(r.name)
+	err = validation.ValidateName(r.Name)
 	if err != nil {
 		return err
 	}
 	if r.Type == domain.Counter {
-		err = validation.ValidateCounterValue(r.value)
+		err = validation.ValidateCounterValue(r.Value)
 		if err != nil {
 			return err
 		}
 	} else if r.Type == domain.Gauge {
-		err = validation.ValidateGaugeValue(r.value)
+		err = validation.ValidateGaugeValue(r.Value)
 		if err != nil {
 			return err
 		}
@@ -50,17 +50,17 @@ func (r *MetricUpdatePathRequest) Validate() error {
 func (r *MetricUpdatePathRequest) ToDomain() ([]*domain.Metric, error) {
 	var metrics []*domain.Metric
 	metric := &domain.Metric{
-		ID:   r.name,
+		ID:   r.Name,
 		Type: r.Type,
 	}
 	if r.Type == domain.Gauge {
-		value, err := converters.ConvertToFloat64(r.value)
+		value, err := converters.ConvertToFloat64(r.Value)
 		if err != nil {
 			return nil, err
 		}
 		metric.Value = value
 	} else if r.Type == domain.Counter {
-		delta, err := converters.ConvertToInt64(r.value)
+		delta, err := converters.ConvertToInt64(r.Value)
 		if err != nil {
 			return nil, err
 		}
