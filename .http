@@ -1,0 +1,11 @@
+# Test 1: POST request to /update/{type}/{name}/{value}
+POST http://localhost:8080/update/counter/testSetGet149/455
+Content-Type: text/plain
+
+# Test 2: GET request to /value/{type}/{name}
+GET http://localhost:8080/value/counter/temperature
+Content-Type: text/plain
+
+# Test 3: GET request to /
+GET http://localhost:8080/
+Content-Type: text/html

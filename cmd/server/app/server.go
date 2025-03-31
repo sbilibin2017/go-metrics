@@ -10,21 +10,35 @@ import (
 	"go-metrics/internal/services"
 	"go-metrics/internal/unitofwork"
 	"go-metrics/internal/usecases"
-
-	"github.com/go-chi/chi"
 )
 
 func NewServer(config *configs.ServerConfig) *server.Server {
 	data := make(map[domain.MetricID]*domain.Metric)
+
 	saveRepo := repositories.NewMetricMemorySaveRepository(data)
 	findRepo := repositories.NewMetricMemoryFindRepository(data)
+
 	uow := unitofwork.NewMemoryUnitOfWork()
+
 	metricUpdateService := services.NewMetricUpdateService(saveRepo, findRepo, uow)
+	metricGetByIDService := services.NewMetricGetByIDService(findRepo)
+	metricListService := services.NewMetricListService(findRepo)
+
 	metricUpdatePathUsecase := usecases.NewMetricUpdatePathUsecase(metricUpdateService)
+	metricGetByIDPathUsecase := usecases.NewMetricGetByIDPathUsecase(metricGetByIDService)
+	metricListHTMLUsecase := usecases.NewMetricListHTMLUsecase(metricListService)
+
 	metricUpdateHandler := handlers.MetricUpdatePathHandler(metricUpdatePathUsecase)
-	r := chi.NewRouter()
-	routers.RegisterMetricUpdatePathRouter(r, metricUpdateHandler)
-	server := server.NewServer(config)
-	server.AddRouter(r)
+	metricGetByIDHandler := handlers.MetricGetByIDPathHandler(metricGetByIDPathUsecase)
+	metricListHTMLHandler := handlers.MetricListHTMLHandler(metricListHTMLUsecase)
+
+	metricRouter := routers.NewMetricRouter(
+		metricUpdateHandler,
+		metricGetByIDHandler,
+		metricListHTMLHandler,
+	)
+
+	server := server.NewServer(config, metricRouter)
+
 	return server
 }

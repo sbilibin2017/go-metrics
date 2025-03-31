@@ -18,7 +18,7 @@ func ValidateValue(value string) error {
 	return nil
 }
 
-func ValidateCounterValueString(value string) error {
+func ValidateCounterValue(value string) error {
 	_, err := converters.ConvertToInt64(value)
 	if err != nil {
 		return ErrInvalidCounterValue
@@ -26,7 +26,7 @@ func ValidateCounterValueString(value string) error {
 	return nil
 }
 
-func ValidateGaugeValueString(value string) error {
+func ValidateGaugeValue(value string) error {
 	_, err := converters.ConvertToFloat64(value)
 	if err != nil {
 		return ErrInvalidGaugeValue

@@ -14,3 +14,7 @@ func ConvertToInt64(value string) (*int64, error) {
 	}
 	return &parsedValue, nil
 }
+
+func FormatInt64(value int64) string {
+	return strconv.FormatInt(value, 10)
+}
