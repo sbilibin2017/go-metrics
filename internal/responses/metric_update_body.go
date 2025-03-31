@@ -4,7 +4,7 @@ import "go-metrics/internal/domain"
 
 type MetricUpdateBodyResponse struct {
 	ID    string   `json:"id"`
-	MType string   `json:"type"`
+	Type  string   `json:"type"`
 	Delta *int64   `json:"delta,omitempty"`
 	Value *float64 `json:"value,omitempty"`
 }
@@ -16,7 +16,7 @@ func NewMetricUpdateBodyResponse(metrics []*domain.Metric) *MetricUpdateBodyResp
 	metric := metrics[0]
 	response := &MetricUpdateBodyResponse{
 		ID:    metric.ID,
-		MType: metric.MType,
+		Type:  metric.Type,
 		Delta: metric.Delta,
 		Value: metric.Value,
 	}

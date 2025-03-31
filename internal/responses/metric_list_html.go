@@ -18,13 +18,13 @@ func (r *MetricListHTMLResponse) ToResponse() []byte {
 	html += "<h1>Metrics List</h1><table border='1'><tr><th>ID</th><th>Value</th></tr>"
 	for _, metric := range r.metrics {
 		var value string
-		if metric.MType == domain.Counter {
+		if metric.Type == domain.Counter {
 			if metric.Delta != nil {
 				value = fmt.Sprintf("%d", *metric.Delta)
 			} else {
 				value = "N/A"
 			}
-		} else if metric.MType == domain.Gauge {
+		} else if metric.Type == domain.Gauge {
 			if metric.Value != nil {
 				value = fmt.Sprintf("%f", *metric.Value)
 			} else {

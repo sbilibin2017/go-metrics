@@ -6,12 +6,12 @@ import (
 )
 
 type MetricGetByIDBodyRequest struct {
-	ID    string `json:"id"`
-	MType string `json:"type"`
+	ID   string `json:"id"`
+	Type string `json:"type"`
 }
 
 func (r *MetricGetByIDBodyRequest) Validate() error {
-	err := validation.ValidateType(r.MType)
+	err := validation.ValidateType(r.Type)
 	if err != nil {
 		return err
 	}
@@ -24,8 +24,8 @@ func (r *MetricGetByIDBodyRequest) Validate() error {
 
 func (r *MetricGetByIDBodyRequest) ToDomain() (*domain.MetricID, error) {
 	metricID := &domain.MetricID{
-		ID:    r.ID,
-		MType: r.MType,
+		ID:   r.ID,
+		Type: r.Type,
 	}
 	return metricID, nil
 }

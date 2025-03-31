@@ -29,16 +29,16 @@ func NewServer(config *configs.ServerConfig) *server.Server {
 	metricListService := services.NewMetricListService(findRepo)
 
 	metricUpdatePathUsecase := usecases.NewMetricUpdatePathUsecase(metricUpdateService)
-	metricUpdateBodyUsecase := usecases.NewMetricUpdateBodyUsecase(metricUpdateService)
 	metricGetByIDPathUsecase := usecases.NewMetricGetByIDPathUsecase(metricGetByIDService)
-	metricGetByIDBodyUsecase := usecases.NewMetricGetByIDBodyUsecase(metricGetByIDService)
 	metricListHTMLUsecase := usecases.NewMetricListHTMLUsecase(metricListService)
+	metricUpdateBodyUsecase := usecases.NewMetricUpdateBodyUsecase(metricUpdateService)
+	metricGetByIDBodyUsecase := usecases.NewMetricGetByIDBodyUsecase(metricGetByIDService)
 
 	metricUpdateHandler := handlers.MetricUpdatePathHandler(metricUpdatePathUsecase)
-	metricUpdateBodyHandler := handlers.MetricUpdateBodyHandler(metricUpdateBodyUsecase)
 	metricGetByIDHandler := handlers.MetricGetByIDPathHandler(metricGetByIDPathUsecase)
-	metricGetByIDBodyHandler := handlers.MetricGetByIDBodyHandler(metricGetByIDBodyUsecase)
 	metricListHTMLHandler := handlers.MetricListHTMLHandler(metricListHTMLUsecase)
+	metricUpdateBodyHandler := handlers.MetricUpdateBodyHandler(metricUpdateBodyUsecase)
+	metricGetByIDBodyHandler := handlers.MetricGetByIDBodyHandler(metricGetByIDBodyUsecase)
 
 	metricRouter := routers.NewMetricRouter(
 		metricUpdateHandler,

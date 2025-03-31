@@ -27,8 +27,8 @@ func TestMetricListService_List_Success(t *testing.T) {
 
 	// Mock expected behavior
 	mockRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(map[domain.MetricID]*domain.Metric{
-		domain.MetricID{ID: "metric-1", MType: "counter"}: {ID: "metric-1", MType: "counter", Delta: nil, Value: nil},
-		domain.MetricID{ID: "metric-2", MType: "gauge"}:   {ID: "metric-2", MType: "gauge", Delta: nil, Value: nil},
+		domain.MetricID{ID: "metric-1", Type: "counter"}: {ID: "metric-1", Type: "counter", Delta: nil, Value: nil},
+		domain.MetricID{ID: "metric-2", Type: "gauge"}:   {ID: "metric-2", Type: "gauge", Delta: nil, Value: nil},
 	}, nil).Times(1)
 
 	// Call the List method
@@ -80,8 +80,8 @@ func TestMetricListService_List_SortedResult(t *testing.T) {
 
 	// Mock Find to return unordered metrics
 	mockRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(map[domain.MetricID]*domain.Metric{
-		domain.MetricID{ID: "metric-2", MType: "gauge"}:   {ID: "metric-2", MType: "gauge", Delta: nil, Value: nil},
-		domain.MetricID{ID: "metric-1", MType: "counter"}: {ID: "metric-1", MType: "counter", Delta: nil, Value: nil},
+		domain.MetricID{ID: "metric-2", Type: "gauge"}:   {ID: "metric-2", Type: "gauge", Delta: nil, Value: nil},
+		domain.MetricID{ID: "metric-1", Type: "counter"}: {ID: "metric-1", Type: "counter", Delta: nil, Value: nil},
 	}, nil).Times(1)
 
 	// Call the List method

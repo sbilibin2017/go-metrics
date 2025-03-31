@@ -7,12 +7,12 @@ import (
 )
 
 var (
-	ErrInvalidType = errors.New("invalid mtype: must be 'gauge' or 'counter'")
+	ErrInvalidType = errors.New("invalid Type: must be 'gauge' or 'counter'")
 )
 
-func ValidateType(mType string) error {
-	mType = strings.ToLower(mType)
-	if mType != domain.Gauge && mType != domain.Counter {
+func ValidateType(Type string) error {
+	Type = strings.ToLower(Type)
+	if Type != domain.Gauge && Type != domain.Counter {
 		return ErrInvalidType
 	}
 	return nil

@@ -11,9 +11,9 @@ type MetricGetByIDPathResponse struct {
 
 func NewMetricGetByIDPathResponse(metric *domain.Metric) *MetricGetByIDPathResponse {
 	var result string
-	if metric.MType == domain.Counter && metric.Delta != nil {
+	if metric.Type == domain.Counter && metric.Delta != nil {
 		result = converters.FormatInt64(*metric.Delta)
-	} else if metric.MType == domain.Gauge && metric.Value != nil {
+	} else if metric.Type == domain.Gauge && metric.Value != nil {
 		result = converters.FormatFloat64(*metric.Value)
 	} else {
 		return nil

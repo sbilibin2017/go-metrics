@@ -35,13 +35,13 @@ func (repo *MetricMemoryFindRepository) Find(
 				if _, ok := filterMap[filter.ID]; !ok {
 					filterMap[filter.ID] = make(map[string]struct{})
 				}
-				filterMap[filter.ID][filter.MType] = struct{}{}
+				filterMap[filter.ID][filter.Type] = struct{}{}
 			}
 		}
 		result = make(map[domain.MetricID]*domain.Metric)
 		for metricID, metric := range repo.data {
 			if types, exists := filterMap[metricID.ID]; exists {
-				if _, exists := types[metricID.MType]; exists {
+				if _, exists := types[metricID.Type]; exists {
 					result[metricID] = metric
 				}
 			}

@@ -6,22 +6,22 @@ import (
 )
 
 type MetricGetByIDPathRequest struct {
-	mtype string
-	name  string
+	Type string
+	name string
 }
 
 func NewMetricGetByIDPathRequest(
-	mtype string,
+	Type string,
 	name string,
 ) *MetricGetByIDPathRequest {
 	return &MetricGetByIDPathRequest{
-		mtype: mtype,
-		name:  name,
+		Type: Type,
+		name: name,
 	}
 }
 
 func (r *MetricGetByIDPathRequest) Validate() error {
-	err := validation.ValidateType(r.mtype)
+	err := validation.ValidateType(r.Type)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func (r *MetricGetByIDPathRequest) Validate() error {
 
 func (r *MetricGetByIDPathRequest) ToDomain() (*domain.MetricID, error) {
 	return &domain.MetricID{
-		ID:    r.name,
-		MType: r.mtype,
+		ID:   r.name,
+		Type: r.Type,
 	}, nil
 }

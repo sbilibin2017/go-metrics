@@ -14,8 +14,8 @@ func TestMetricGetByIDService_GetByID_MetricFound(t *testing.T) {
 	defer ctrl.Finish()
 	mockRepo := NewMockMetricGetByIDFindRepository(ctrl)
 	service := NewMetricGetByIDService(mockRepo)
-	metricID := &domain.MetricID{ID: "metric1", MType: "gauge"}
-	metric := &domain.Metric{ID: "metric1", MType: "gauge", Value: func() *float64 { v := 42.5; return &v }()}
+	metricID := &domain.MetricID{ID: "metric1", Type: "gauge"}
+	metric := &domain.Metric{ID: "metric1", Type: "gauge", Value: func() *float64 { v := 42.5; return &v }()}
 	mockRepo.EXPECT().Find(context.Background(), []*domain.MetricID{metricID}).Return(map[domain.MetricID]*domain.Metric{*metricID: metric}, nil)
 	result, err := service.GetByID(context.Background(), metricID)
 	assert.NoError(t, err)
@@ -27,7 +27,7 @@ func TestMetricGetByIDService_GetByID_MetricNotFound(t *testing.T) {
 	defer ctrl.Finish()
 	mockRepo := NewMockMetricGetByIDFindRepository(ctrl)
 	service := NewMetricGetByIDService(mockRepo)
-	metricID := &domain.MetricID{ID: "metric2", MType: "counter"}
+	metricID := &domain.MetricID{ID: "metric2", Type: "counter"}
 	mockRepo.EXPECT().Find(context.Background(), []*domain.MetricID{metricID}).Return(map[domain.MetricID]*domain.Metric{}, nil)
 	result, err := service.GetByID(context.Background(), metricID)
 	assert.Error(t, err)
@@ -40,7 +40,7 @@ func TestMetricGetByIDService_GetByID_FindRepositoryError(t *testing.T) {
 	defer ctrl.Finish()
 	mockRepo := NewMockMetricGetByIDFindRepository(ctrl)
 	service := NewMetricGetByIDService(mockRepo)
-	metricID := &domain.MetricID{ID: "metric3", MType: "gauge"}
+	metricID := &domain.MetricID{ID: "metric3", Type: "gauge"}
 	mockRepo.EXPECT().Find(context.Background(), []*domain.MetricID{metricID}).Return(nil, assert.AnError)
 	result, err := service.GetByID(context.Background(), metricID)
 	assert.Error(t, err)

@@ -25,7 +25,7 @@ func (repo *MetricMemorySaveRepository) Save(
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	for _, metric := range metrics {
-		repo.data[domain.MetricID{ID: metric.ID, MType: metric.MType}] = metric
+		repo.data[domain.MetricID{ID: metric.ID, Type: metric.Type}] = metric
 	}
 	return nil
 }
