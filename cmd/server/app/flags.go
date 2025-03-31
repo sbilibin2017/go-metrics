@@ -3,12 +3,17 @@ package app
 import (
 	"flag"
 	"go-metrics/internal/configs"
+	"os"
 )
 
 func ParseFlags() *configs.ServerConfig {
-	serverAddr := flag.String("a", "localhost:8080", "Адрес эндпоинта HTTP-сервера (по умолчанию localhost:8080)")
+	serverAddr := "localhost:8080"
+	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
+		serverAddr = envAddr
+	}
+	flag.StringVar(&serverAddr, "a", serverAddr, "Адрес эндпоинта HTTP-сервера")
 	flag.Parse()
 	return &configs.ServerConfig{
-		Address: *serverAddr,
+		Address: serverAddr,
 	}
 }
