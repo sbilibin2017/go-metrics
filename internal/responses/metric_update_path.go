@@ -1,7 +1,13 @@
 package responses
 
-type MetricUpdatePathResponse struct{}
+type MetricUpdatePathResponse struct {
+	Message string
+}
 
-func (r MetricUpdatePathResponse) ToResponse() []byte {
-	return []byte("Metric updated successfully")
+func NewMetricUpdatePathResponse() *MetricUpdatePathResponse {
+	return &MetricUpdatePathResponse{Message: "Metric updated successfully"}
+}
+
+func (r *MetricUpdatePathResponse) ToResponse() []byte {
+	return []byte(r.Message)
 }

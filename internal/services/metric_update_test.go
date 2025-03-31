@@ -1,10 +1,8 @@
-package services_test
+package services
 
 import (
 	"context"
-	"errors"
 	"go-metrics/internal/domain"
-	"go-metrics/internal/services"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -15,67 +13,87 @@ import (
 func TestMetricUpdateService_Update(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	saveRepo := services.NewMockMetricUpdateSaveBatchRepository(ctrl)
-	findRepo := services.NewMockMetricUpdateFindBatchRepository(ctrl)
-	uow := services.NewMockUnitOfWork(ctrl)
-	service := services.NewMetricUpdateService(saveRepo, findRepo, uow)
-	metrics := []*domain.Metric{
-		{ID: "1", Type: domain.Counter, Delta: new(int64)},
-		{ID: "2", Type: domain.Counter, Delta: new(int64)},
-	}
-	findRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(map[domain.MetricID]*domain.Metric{
-		{ID: "1", Type: domain.Counter}: {ID: "1", Type: domain.Counter, Delta: new(int64)},
-	}, nil)
-	saveRepo.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil)
-	uow.EXPECT().Do(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, operation func() error) error {
-		return operation()
-	})
-	updatedMetrics, err := service.Update(context.Background(), metrics)
-	require.NoError(t, err)
-	assert.Equal(t, metrics, updatedMetrics)
-}
 
-func TestMetricUpdateService_Update_SaveError(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	saveRepo := services.NewMockMetricUpdateSaveBatchRepository(ctrl)
-	findRepo := services.NewMockMetricUpdateFindBatchRepository(ctrl)
-	uow := services.NewMockUnitOfWork(ctrl)
-	service := services.NewMetricUpdateService(saveRepo, findRepo, uow)
-	metrics := []*domain.Metric{
-		{ID: "1", Type: domain.Counter, Delta: new(int64)},
-		{ID: "2", Type: domain.Counter, Delta: new(int64)},
-	}
-	findRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(map[domain.MetricID]*domain.Metric{
-		{ID: "1", Type: domain.Counter}: {ID: "1", Type: domain.Counter, Delta: new(int64)},
-	}, nil)
-	saveRepo.EXPECT().Save(gomock.Any(), gomock.Any()).Return(errors.New("save failed"))
-	uow.EXPECT().Do(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, operation func() error) error {
-		return operation()
-	})
-	updatedMetrics, err := service.Update(context.Background(), metrics)
-	require.Error(t, err)
-	assert.Nil(t, updatedMetrics)
-	assert.Equal(t, services.ErrMetricIsNotUpdated, err)
-}
+	mockSaveRepo := NewMockMetricUpdateSaveBatchRepository(ctrl)
+	mockFindRepo := NewMockMetricUpdateFindBatchRepository(ctrl)
+	mockUnitOfWork := NewMockUnitOfWork(ctrl)
+	service := NewMetricUpdateService(mockSaveRepo, mockFindRepo, mockUnitOfWork)
 
-func TestMetricUpdateService_Update_Failure(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	saveRepo := services.NewMockMetricUpdateSaveBatchRepository(ctrl)
-	findRepo := services.NewMockMetricUpdateFindBatchRepository(ctrl)
-	uow := services.NewMockUnitOfWork(ctrl)
-	service := services.NewMetricUpdateService(saveRepo, findRepo, uow)
-	metrics := []*domain.Metric{
-		{ID: "1", Type: domain.Counter, Delta: new(int64)},
-		{ID: "2", Type: domain.Counter, Delta: new(int64)},
+	metric := &domain.Metric{
+		ID:    "metric1",
+		MType: domain.Counter,
+		Delta: new(int64),
 	}
-	findRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(nil, errors.New("find failed"))
-	uow.EXPECT().Do(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, operation func() error) error {
-		return operation()
-	})
-	updatedMetrics, err := service.Update(context.Background(), metrics)
-	require.Error(t, err)
-	assert.Nil(t, updatedMetrics)
-	assert.Equal(t, services.ErrMetricIsNotUpdated, err)
+	*metric.Delta = 5
+
+	existingMetrics := map[domain.MetricID]*domain.Metric{
+		{ID: "metric1", MType: domain.Counter}: {
+			ID:    "metric1",
+			MType: domain.Counter,
+			Delta: new(int64),
+		},
+	}
+	*existingMetrics[domain.MetricID{ID: "metric1", MType: domain.Counter}].Delta = 10
+
+	tests := []struct {
+		name          string
+		mockSetup     func()
+		metrics       []*domain.Metric
+		expectedError error
+		expectedDelta int64
+	}{
+		{
+			name: "should update metrics successfully",
+			mockSetup: func() {
+				mockUnitOfWork.EXPECT().Do(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, operation func() error) error {
+					return operation()
+				}).Times(1)
+				mockFindRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(existingMetrics, nil).Times(1)
+				mockSaveRepo.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+			},
+			metrics:       []*domain.Metric{metric},
+			expectedError: nil,
+			expectedDelta: 15,
+		},
+		{
+			name: "should return error if Find fails",
+			mockSetup: func() {
+				mockUnitOfWork.EXPECT().Do(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, operation func() error) error {
+					return operation()
+				}).Times(1)
+				mockFindRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(nil, ErrMetricIsNotUpdated).Times(1)
+			},
+			metrics:       []*domain.Metric{metric},
+			expectedError: ErrMetricIsNotUpdated,
+			expectedDelta: 0,
+		},
+		{
+			name: "should return error if Save fails",
+			mockSetup: func() {
+				mockUnitOfWork.EXPECT().Do(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, operation func() error) error {
+					return operation()
+				}).Times(1)
+				mockFindRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(existingMetrics, nil).Times(1)
+				mockSaveRepo.EXPECT().Save(gomock.Any(), gomock.Any()).Return(ErrMetricIsNotUpdated).Times(1)
+			},
+			metrics:       []*domain.Metric{metric},
+			expectedError: ErrMetricIsNotUpdated,
+			expectedDelta: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.mockSetup()
+			updatedMetrics, err := service.Update(context.Background(), tt.metrics)
+			if tt.expectedError != nil {
+				require.Error(t, err)
+				assert.Equal(t, tt.expectedError, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, 1, len(updatedMetrics))
+				assert.Equal(t, tt.expectedDelta, *updatedMetrics[0].Delta)
+			}
+		})
+	}
 }

@@ -16,15 +16,15 @@ func TestMetricMemorySaveRepository_Save(t *testing.T) {
 	delta2 := int64(10)
 
 	metrics := []*domain.Metric{
-		{ID: "metric1", Type: "gauge", Value: &value1},
-		{ID: "metric2", Type: domain.Counter, Delta: &delta2},
+		{ID: "metric1", MType: "gauge", Value: &value1},
+		{ID: "metric2", MType: domain.Counter, Delta: &delta2},
 	}
 
 	err := repo.Save(context.Background(), metrics)
 	assert.NoError(t, err)
 
 	for _, metric := range metrics {
-		key := domain.MetricID{ID: metric.ID, Type: metric.Type}
+		key := domain.MetricID{ID: metric.ID, MType: metric.MType}
 		storedMetric, exists := data[key]
 		assert.True(t, exists)
 		assert.Equal(t, metric, storedMetric)

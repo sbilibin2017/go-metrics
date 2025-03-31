@@ -4,19 +4,19 @@ import (
 	"context"
 	"errors"
 	"go-metrics/internal/domain"
+	"sort"
 )
 
-type MetricListFindBatchRepository interface {
-	Find(ctx context.Context, filters []domain.MetricID) (map[domain.MetricID]*domain.Metric, error)
+type MetricListFindRepository interface {
+	Find(ctx context.Context, filters []*domain.MetricID) (map[domain.MetricID]*domain.Metric, error)
 }
 
 type MetricListService struct {
-	findRepo MetricListFindBatchRepository
+	findRepo MetricListFindRepository
 }
 
-// Конструктор для создания сервиса
 func NewMetricListService(
-	findRepo MetricListFindBatchRepository,
+	findRepo MetricListFindRepository,
 ) *MetricListService {
 	return &MetricListService{
 		findRepo: findRepo,
@@ -27,11 +27,10 @@ var (
 	ErrMetricListInternal = errors.New("internal error")
 )
 
-// Метод List для получения списка всех метрик
 func (s *MetricListService) List(
 	ctx context.Context,
 ) ([]*domain.Metric, error) {
-	metricsMap, err := s.findRepo.Find(ctx, []domain.MetricID{})
+	metricsMap, err := s.findRepo.Find(ctx, []*domain.MetricID{})
 	if err != nil {
 		return nil, ErrMetricListInternal
 	}
@@ -39,5 +38,8 @@ func (s *MetricListService) List(
 	for _, metric := range metricsMap {
 		metrics = append(metrics, metric)
 	}
+	sort.Slice(metrics, func(i, j int) bool {
+		return metrics[i].ID < metrics[j].ID
+	})
 	return metrics, nil
 }

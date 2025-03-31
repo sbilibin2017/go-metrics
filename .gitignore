@@ -26,3 +26,5 @@ vendor/
 
 go.mod
 go.sum
+
+.http

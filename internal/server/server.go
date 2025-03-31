@@ -19,22 +19,15 @@ type Addresser interface {
 
 type Server struct {
 	server HTTPServer
-	router chi.Router
 }
 
-func NewServer(a Addresser) *Server {
-	rtr := chi.NewRouter()
+func NewServer(a Addresser, r *chi.Mux) *Server {
 	return &Server{
 		server: &http.Server{
 			Addr:    a.GetAddress(),
-			Handler: rtr,
+			Handler: r,
 		},
-		router: rtr,
 	}
-}
-
-func (s *Server) AddRouter(r chi.Router) {
-	s.router.Mount("/", r)
 }
 
 func (s *Server) Start(ctx context.Context) error {

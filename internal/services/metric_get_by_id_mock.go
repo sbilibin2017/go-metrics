@@ -12,31 +12,31 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockMetricGetByIDFindBatchRepository is a mock of MetricGetByIDFindBatchRepository interface.
-type MockMetricGetByIDFindBatchRepository struct {
+// MockMetricGetByIDFindRepository is a mock of MetricGetByIDFindRepository interface.
+type MockMetricGetByIDFindRepository struct {
 	ctrl     *gomock.Controller
-	recorder *MockMetricGetByIDFindBatchRepositoryMockRecorder
+	recorder *MockMetricGetByIDFindRepositoryMockRecorder
 }
 
-// MockMetricGetByIDFindBatchRepositoryMockRecorder is the mock recorder for MockMetricGetByIDFindBatchRepository.
-type MockMetricGetByIDFindBatchRepositoryMockRecorder struct {
-	mock *MockMetricGetByIDFindBatchRepository
+// MockMetricGetByIDFindRepositoryMockRecorder is the mock recorder for MockMetricGetByIDFindRepository.
+type MockMetricGetByIDFindRepositoryMockRecorder struct {
+	mock *MockMetricGetByIDFindRepository
 }
 
-// NewMockMetricGetByIDFindBatchRepository creates a new mock instance.
-func NewMockMetricGetByIDFindBatchRepository(ctrl *gomock.Controller) *MockMetricGetByIDFindBatchRepository {
-	mock := &MockMetricGetByIDFindBatchRepository{ctrl: ctrl}
-	mock.recorder = &MockMetricGetByIDFindBatchRepositoryMockRecorder{mock}
+// NewMockMetricGetByIDFindRepository creates a new mock instance.
+func NewMockMetricGetByIDFindRepository(ctrl *gomock.Controller) *MockMetricGetByIDFindRepository {
+	mock := &MockMetricGetByIDFindRepository{ctrl: ctrl}
+	mock.recorder = &MockMetricGetByIDFindRepositoryMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockMetricGetByIDFindBatchRepository) EXPECT() *MockMetricGetByIDFindBatchRepositoryMockRecorder {
+func (m *MockMetricGetByIDFindRepository) EXPECT() *MockMetricGetByIDFindRepositoryMockRecorder {
 	return m.recorder
 }
 
 // Find mocks base method.
-func (m *MockMetricGetByIDFindBatchRepository) Find(ctx context.Context, filters []domain.MetricID) (map[domain.MetricID]*domain.Metric, error) {
+func (m *MockMetricGetByIDFindRepository) Find(ctx context.Context, filters []*domain.MetricID) (map[domain.MetricID]*domain.Metric, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Find", ctx, filters)
 	ret0, _ := ret[0].(map[domain.MetricID]*domain.Metric)
@@ -45,7 +45,7 @@ func (m *MockMetricGetByIDFindBatchRepository) Find(ctx context.Context, filters
 }
 
 // Find indicates an expected call of Find.
-func (mr *MockMetricGetByIDFindBatchRepositoryMockRecorder) Find(ctx, filters interface{}) *gomock.Call {
+func (mr *MockMetricGetByIDFindRepositoryMockRecorder) Find(ctx, filters interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Find", reflect.TypeOf((*MockMetricGetByIDFindBatchRepository)(nil).Find), ctx, filters)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Find", reflect.TypeOf((*MockMetricGetByIDFindRepository)(nil).Find), ctx, filters)
 }

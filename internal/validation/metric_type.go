@@ -16,5 +16,4 @@ func ValidateType(mType string) error {
 		return ErrInvalidType
 	}
 	return nil
-
 }

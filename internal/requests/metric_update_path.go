@@ -7,31 +7,39 @@ import (
 )
 
 type MetricUpdatePathRequest struct {
-	Type  string
-	Name  string
-	Value string
+	mtype string
+	name  string
+	value string
+}
+
+func NewMetricUpdatePathRequest(
+	mtype string,
+	name string,
+	value string,
+) *MetricUpdatePathRequest {
+	return &MetricUpdatePathRequest{
+		mtype: mtype,
+		name:  name,
+		value: value,
+	}
 }
 
 func (r *MetricUpdatePathRequest) Validate() error {
-	err := validation.ValidateType(r.Type)
+	err := validation.ValidateType(r.mtype)
 	if err != nil {
 		return err
 	}
-	err = validation.ValidateName(r.Name)
+	err = validation.ValidateName(r.name)
 	if err != nil {
 		return err
 	}
-	err = validation.ValidateValue(r.Value)
-	if err != nil {
-		return err
-	}
-	if r.Type == domain.Counter {
-		err = validation.ValidateCounterValueString(r.Value)
+	if r.mtype == domain.Counter {
+		err = validation.ValidateCounterValue(r.value)
 		if err != nil {
 			return err
 		}
-	} else if r.Type == domain.Gauge {
-		err = validation.ValidateGaugeValueString(r.Value)
+	} else if r.mtype == domain.Gauge {
+		err = validation.ValidateGaugeValue(r.value)
 		if err != nil {
 			return err
 		}
@@ -39,23 +47,25 @@ func (r *MetricUpdatePathRequest) Validate() error {
 	return nil
 }
 
-func (r *MetricUpdatePathRequest) ToDomain() (*domain.Metric, error) {
+func (r *MetricUpdatePathRequest) ToDomain() ([]*domain.Metric, error) {
+	var metrics []*domain.Metric
 	metric := &domain.Metric{
-		ID:   r.Name,
-		Type: r.Type,
+		ID:    r.name,
+		MType: r.mtype,
 	}
-	if r.Type == domain.Gauge {
-		value, err := converters.ConvertToFloat64(r.Value)
+	if r.mtype == domain.Gauge {
+		value, err := converters.ConvertToFloat64(r.value)
 		if err != nil {
 			return nil, err
 		}
 		metric.Value = value
-	} else if r.Type == domain.Counter {
-		delta, err := converters.ConvertToInt64(r.Value)
+	} else if r.mtype == domain.Counter {
+		delta, err := converters.ConvertToInt64(r.value)
 		if err != nil {
 			return nil, err
 		}
 		metric.Delta = delta
 	}
-	return metric, nil
+	metrics = append(metrics, metric)
+	return metrics, nil
 }

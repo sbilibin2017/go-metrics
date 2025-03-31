@@ -14,3 +14,7 @@ func ConvertToFloat64(value string) (*float64, error) {
 	}
 	return &result, nil
 }
+
+func FormatFloat64(value float64) string {
+	return strconv.FormatFloat(value, 'g', -1, 64)
+}

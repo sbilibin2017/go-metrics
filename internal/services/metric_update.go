@@ -11,7 +11,7 @@ type MetricUpdateSaveBatchRepository interface {
 }
 
 type MetricUpdateFindBatchRepository interface {
-	Find(ctx context.Context, filters []domain.MetricID) (map[domain.MetricID]*domain.Metric, error)
+	Find(ctx context.Context, filters []*domain.MetricID) (map[domain.MetricID]*domain.Metric, error)
 }
 
 type UnitOfWork interface {
@@ -36,39 +36,56 @@ func NewMetricUpdateService(
 	}
 }
 
-var ErrMetricIsNotUpdated = errors.New("metric is not updated")
-
 func (s *MetricUpdateService) Update(
 	ctx context.Context, metrics []*domain.Metric,
 ) ([]*domain.Metric, error) {
+	var updatedMetrics []*domain.Metric
 	err := s.uow.Do(ctx, func() error {
-		metricIDs := make([]domain.MetricID, len(metrics))
-		for i, metric := range metrics {
-			metricIDs[i] = domain.MetricID{ID: metric.ID, Type: metric.Type}
-		}
-		existingMetrics, err := s.findRepo.Find(ctx, metricIDs)
+		existingMetrics, err := s.findMetrics(ctx, metrics)
 		if err != nil {
 			return ErrMetricIsNotUpdated
 		}
-		for i, metric := range metrics {
-			switch metric.Type {
-			case domain.Counter:
-				if existingMetric, exists := existingMetrics[domain.MetricID{
-					ID:   metric.ID,
-					Type: metric.Type,
-				}]; exists {
-					*metric.Delta += *existingMetric.Delta
-				}
-			}
-			metrics[i] = metric
+		if err := s.updateMetrics(ctx, metrics, existingMetrics); err != nil {
+			return err
 		}
-		if err := s.saveRepo.Save(ctx, metrics); err != nil {
-			return ErrMetricIsNotUpdated
-		}
+		updatedMetrics = metrics
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	return metrics, nil
+	return updatedMetrics, nil
+}
+
+var ErrMetricIsNotUpdated = errors.New("metric is not updated")
+
+func (s *MetricUpdateService) findMetrics(
+	ctx context.Context, metrics []*domain.Metric,
+) (map[domain.MetricID]*domain.Metric, error) {
+	metricIDs := make([]*domain.MetricID, len(metrics))
+	for i, metric := range metrics {
+		metricIDs[i] = &domain.MetricID{ID: metric.ID, MType: metric.MType}
+	}
+	return s.findRepo.Find(ctx, metricIDs)
+}
+
+func (s *MetricUpdateService) updateMetrics(
+	ctx context.Context, metrics []*domain.Metric, existingMetrics map[domain.MetricID]*domain.Metric,
+) error {
+	for i, metric := range metrics {
+		switch metric.MType {
+		case domain.Counter:
+			if existingMetric, exists := existingMetrics[domain.MetricID{
+				ID:    metric.ID,
+				MType: metric.MType,
+			}]; exists {
+				*metric.Delta += *existingMetric.Delta
+			}
+		}
+		metrics[i] = metric
+	}
+	if err := s.saveRepo.Save(ctx, metrics); err != nil {
+		return ErrMetricIsNotUpdated
+	}
+	return nil
 }

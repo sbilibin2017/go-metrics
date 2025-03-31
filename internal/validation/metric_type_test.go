@@ -1,7 +1,6 @@
 package validation
 
 import (
-	"go-metrics/internal/domain"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,46 +8,51 @@ import (
 
 func TestValidateType(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		expected error
+		name    string
+		mType   string
+		wantErr error
 	}{
 		{
-			name:     "Empty type",
-			input:    "",
-			expected: ErrInvalidType,
+			name:    "valid type - counter",
+			mType:   "counter",
+			wantErr: nil,
 		},
 		{
-			name:     "Valid type 'gauge'",
-			input:    domain.Gauge,
-			expected: nil,
+			name:    "valid type - gauge",
+			mType:   "gauge",
+			wantErr: nil,
 		},
 		{
-			name:     "Valid type 'counter'",
-			input:    domain.Counter,
-			expected: nil,
+			name:    "invalid type - empty string",
+			mType:   "",
+			wantErr: ErrInvalidType,
 		},
 		{
-			name:     "Invalid type 'other'",
-			input:    "other",
-			expected: ErrInvalidType,
+			name:    "invalid type - unknown value",
+			mType:   "unknown",
+			wantErr: ErrInvalidType,
 		},
 		{
-			name:     "Type with mixed case 'Gauge'",
-			input:    "Gauge",
-			expected: nil,
+			name:    "valid type with mixed case - Counter",
+			mType:   "Counter",
+			wantErr: nil,
 		},
 		{
-			name:     "Type with mixed case 'Counter'",
-			input:    "Counter",
-			expected: nil,
+			name:    "valid type with mixed case - Gauge",
+			mType:   "Gauge",
+			wantErr: nil,
+		},
+		{
+			name:    "invalid type with mixed case - SomeOtherType",
+			mType:   "SomeOtherType",
+			wantErr: ErrInvalidType,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateType(tt.input)
-			assert.Equal(t, tt.expected, err)
+			err := ValidateType(tt.mType)
+			assert.Equal(t, tt.wantErr, err)
 		})
 	}
 }

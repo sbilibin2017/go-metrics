@@ -8,98 +8,88 @@ import (
 
 func TestValidateValue(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		expected error
+		name    string
+		value   string
+		wantErr error
 	}{
 		{
-			name:     "Empty value",
-			input:    "",
-			expected: ErrEmptyValue,
+			name:    "valid value",
+			value:   "some value",
+			wantErr: nil,
 		},
 		{
-			name:     "Valid value",
-			input:    "12345",
-			expected: nil,
+			name:    "empty value",
+			value:   "",
+			wantErr: ErrEmptyValue,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateValue(tt.input)
-			assert.Equal(t, tt.expected, err)
+			err := ValidateValue(tt.value)
+			assert.Equal(t, tt.wantErr, err)
 		})
 	}
 }
 
-func TestValidateCounterValueString(t *testing.T) {
+func TestValidateCounterValue(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		expected error
+		name    string
+		value   string
+		wantErr error
 	}{
 		{
-			name:     "Empty value",
-			input:    "",
-			expected: ErrInvalidCounterValue,
+			name:    "valid counter value",
+			value:   "123",
+			wantErr: nil,
 		},
 		{
-			name:     "Valid counter value '123'",
-			input:    "123",
-			expected: nil,
+			name:    "invalid counter value",
+			value:   "not_a_number",
+			wantErr: ErrInvalidCounterValue,
 		},
 		{
-			name:     "Invalid counter value '12.34'",
-			input:    "12.34",
-			expected: ErrInvalidCounterValue,
-		},
-		{
-			name:     "Invalid counter value 'abc'",
-			input:    "abc",
-			expected: ErrInvalidCounterValue,
+			name:    "empty counter value",
+			value:   "",
+			wantErr: ErrInvalidCounterValue,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateCounterValueString(tt.input)
-			assert.Equal(t, tt.expected, err)
+			err := ValidateCounterValue(tt.value)
+			assert.Equal(t, tt.wantErr, err)
 		})
 	}
 }
 
-func TestValidateGaugeValueString(t *testing.T) {
+func TestValidateGaugeValue(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		expected error
+		name    string
+		value   string
+		wantErr error
 	}{
 		{
-			name:     "Empty value",
-			input:    "",
-			expected: ErrInvalidGaugeValue,
+			name:    "valid gauge value",
+			value:   "12.34",
+			wantErr: nil,
 		},
 		{
-			name:     "Valid gauge value '12.34'",
-			input:    "12.34",
-			expected: nil,
+			name:    "invalid gauge value",
+			value:   "not_a_float",
+			wantErr: ErrInvalidGaugeValue,
 		},
 		{
-			name:     "Valid gauge value '123'",
-			input:    "123",
-			expected: nil,
-		},
-		{
-			name:     "Invalid gauge value 'abc'",
-			input:    "abc",
-			expected: ErrInvalidGaugeValue,
+			name:    "empty gauge value",
+			value:   "",
+			wantErr: ErrInvalidGaugeValue,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateGaugeValueString(tt.input)
-			assert.Equal(t, tt.expected, err)
+			err := ValidateGaugeValue(tt.value)
+			assert.Equal(t, tt.wantErr, err)
 		})
 	}
 }

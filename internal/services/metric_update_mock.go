@@ -73,7 +73,7 @@ func (m *MockMetricUpdateFindBatchRepository) EXPECT() *MockMetricUpdateFindBatc
 }
 
 // Find mocks base method.
-func (m *MockMetricUpdateFindBatchRepository) Find(ctx context.Context, filters []domain.MetricID) (map[domain.MetricID]*domain.Metric, error) {
+func (m *MockMetricUpdateFindBatchRepository) Find(ctx context.Context, filters []*domain.MetricID) (map[domain.MetricID]*domain.Metric, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Find", ctx, filters)
 	ret0, _ := ret[0].(map[domain.MetricID]*domain.Metric)
