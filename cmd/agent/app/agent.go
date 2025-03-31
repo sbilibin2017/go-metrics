@@ -1,10 +1,12 @@
 package app
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/json"
 	"go-metrics/internal/configs"
 	"go-metrics/internal/domain"
-	"log"
 	"math/rand"
 	"runtime"
 	"strings"
@@ -40,22 +42,18 @@ func (ma *MetricAgent) Start(ctx context.Context) error {
 			ma.sendMetrics(ctx, metrics)
 			metrics = nil
 		case <-ctx.Done():
-			log.Println("Metric agent stopping...")
 			return nil
 		}
 	}
 }
 
 func (ma *MetricAgent) collectMetrics(metrics []domain.Metric) []domain.Metric {
-	log.Println("Collecting metrics...")
 	metrics = ma.collectCounterMetrics(metrics)
 	metrics = ma.collectGaugeMetrics(metrics)
-	log.Printf("Collected %d metrics\n", len(metrics))
 	return metrics
 }
 
 func (ma *MetricAgent) collectGaugeMetrics(metrics []domain.Metric) []domain.Metric {
-	log.Println("Collecting gauge metrics...")
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 	float64ptr := func(value float64) *float64 { return &value }
@@ -89,19 +87,16 @@ func (ma *MetricAgent) collectGaugeMetrics(metrics []domain.Metric) []domain.Met
 		{ID: "TotalAlloc", Type: domain.Gauge, Value: float64ptr(float64(memStats.TotalAlloc))},
 		{ID: "RandomValue", Type: domain.Gauge, Value: float64ptr(rand.Float64())},
 	}...)
-	log.Println("Finished collecting gauge metrics.")
 	return metrics
 }
 
 func (ma *MetricAgent) collectCounterMetrics(metrics []domain.Metric) []domain.Metric {
-	log.Println("Collecting counter metrics...")
 	int64ptr := func(value int64) *int64 { return &value }
 	metrics = append(metrics, domain.Metric{
 		ID:    "PollCount",
 		Type:  domain.Counter,
 		Delta: int64ptr(1),
 	})
-	log.Println("Finished collecting counter metrics.")
 	return metrics
 }
 
@@ -115,20 +110,31 @@ func (ma *MetricAgent) sendMetrics(ctx context.Context, metrics []domain.Metric)
 	address := normalizeAddress(ma.config.Address)
 	for _, metric := range metrics {
 		url := address + "/update/"
-		log.Printf("Sending metric %s with data: %+v", metric.ID, metric)
+		var buf bytes.Buffer
+		gzipWriter := gzip.NewWriter(&buf)
+		body, err := json.Marshal(metric)
+		if err != nil {
+			continue
+		}
+		_, err = gzipWriter.Write(body)
+		if err != nil {
+			continue
+		}
+		err = gzipWriter.Close()
+		if err != nil {
+			continue
+		}
 		resp, err := ma.client.R().
 			SetContext(ctx).
 			SetHeader("Content-Type", "application/json").
-			SetBody(metric).
+			SetHeader("Content-Encoding", "gzip").
+			SetBody(buf.Bytes()).
 			Post(url)
-
 		if err != nil {
-			log.Printf("Error sending metric %s: %v", metric.ID, err)
 			continue
 		}
-		log.Printf("Successfully sent metric %s, status code: %d", metric.ID, resp.StatusCode())
 		if resp.StatusCode() != 200 {
-			log.Printf("Response body: %s", resp.String())
+			continue
 		}
 	}
 	return nil

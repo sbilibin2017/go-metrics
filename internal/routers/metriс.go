@@ -16,6 +16,7 @@ func NewMetricRouter(
 ) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middlewares.LoggingMiddleware)
+	r.Use(middlewares.GzipMiddleware)
 	r.Post("/update/{type}/{name}/{value}", h1)
 	r.Get("/value/{type}/{name}", h2)
 	r.Get("/", h3)
