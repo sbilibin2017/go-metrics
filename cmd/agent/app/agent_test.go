@@ -1,6 +1,7 @@
 package app
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"go-metrics/internal/configs"
@@ -12,35 +13,36 @@ import (
 )
 
 func TestStart(t *testing.T) {
+
 	mockServer := http.NewServeMux()
 	mockServer.HandleFunc("/update/", func(w http.ResponseWriter, r *http.Request) {
-		// Проверка метода запроса
 		assert.Equal(t, "POST", r.Method, "Expected POST method")
-
-		// Проверка URL-адреса
 		assert.Contains(t, r.URL.Path, "/update/", "Expected URL path to contain '/update/'")
 
-		// Чтение тела запроса
-		var metricData map[string]interface{}
-		decoder := json.NewDecoder(r.Body)
-		err := decoder.Decode(&metricData)
-		assert.NoError(t, err, "Error decoding metric data")
+		if r.Header.Get("Content-Encoding") == "gzip" {
+			gzipReader, err := gzip.NewReader(r.Body)
+			if err != nil {
+				t.Fatalf("Error creating gzip reader: %v", err)
+			}
+			defer gzipReader.Close()
 
-		// Проверка, что в теле запроса присутствуют обязательные поля
-		assert.Contains(t, metricData, "ID", "Expected 'ID' in metric data")
-		assert.Contains(t, metricData, "Type", "Expected 'Type' in metric data")
+			var metricData map[string]interface{}
+			decoder := json.NewDecoder(gzipReader)
+			err = decoder.Decode(&metricData)
+			assert.NoError(t, err, "Error decoding metric data")
+			assert.Contains(t, metricData, "ID", "Expected 'ID' in metric data")
+			assert.Contains(t, metricData, "Type", "Expected 'Type' in metric data")
+			assert.True(t, metricData["Type"] == "gauge" || metricData["Type"] == "counter", "Invalid metric type")
 
-		// Проверка типа метрики (должен быть "gauge" или "counter")
-		assert.True(t, metricData["Type"] == "gauge" || metricData["Type"] == "counter", "Invalid metric type")
+			if metricData["Type"] == "gauge" {
+				assert.Contains(t, metricData, "Value", "Expected 'Value' for gauge metric")
+			}
 
-		// Проверка поля "Value" для gauge
-		if metricData["Type"] == "gauge" {
-			assert.Contains(t, metricData, "Value", "Expected 'Value' for gauge metric")
-		}
-
-		// Проверка поля "Delta" для counter
-		if metricData["Type"] == "counter" {
-			assert.Contains(t, metricData, "Delta", "Expected 'Delta' for counter metric")
+			if metricData["Type"] == "counter" {
+				assert.Contains(t, metricData, "Delta", "Expected 'Delta' for counter metric")
+			}
+		} else {
+			t.Fatalf("Expected gzip content encoding, but got %s", r.Header.Get("Content-Encoding"))
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -63,11 +65,9 @@ func TestStart(t *testing.T) {
 	}
 	ma := NewMetricAgent(config)
 
-	// Контекст с таймаутом для теста
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Запуск агента в горутине
 	agentErr := make(chan error, 1)
 	go func() {
 		err := ma.Start(ctx)
@@ -76,7 +76,6 @@ func TestStart(t *testing.T) {
 		}
 	}()
 
-	// Ожидаем завершения теста
 	select {
 	case err := <-serverErr:
 		t.Fatalf("Test server error: %v", err)
@@ -85,6 +84,5 @@ func TestStart(t *testing.T) {
 	case <-time.After(3 * time.Second):
 	}
 
-	// После завершения теста убедимся, что он выполнился успешно
-	assert.True(t, true)
+	assert.True(t, true, "Test finished successfully")
 }
