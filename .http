@@ -9,3 +9,12 @@ Content-Type: text/plain
 # Test 3: GET request to /
 GET http://localhost:8080/
 Content-Type: text/html
+
+POST http://localhost:8080/update/counter/testSetGet149/455
+Content-Type: application/json
+
+{
+    "id": "testSetGet149",
+    "type": "counter",
+    "delta": 455
+}

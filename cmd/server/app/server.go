@@ -31,15 +31,21 @@ func NewServer(config *configs.ServerConfig) *server.Server {
 	metricUpdatePathUsecase := usecases.NewMetricUpdatePathUsecase(metricUpdateService)
 	metricGetByIDPathUsecase := usecases.NewMetricGetByIDPathUsecase(metricGetByIDService)
 	metricListHTMLUsecase := usecases.NewMetricListHTMLUsecase(metricListService)
+	metricUpdateBodyUsecase := usecases.NewMetricUpdateBodyUsecase(metricUpdateService)
+	metricGetByIDBodyUsecase := usecases.NewMetricGetByIDBodyUsecase(metricGetByIDService)
 
 	metricUpdateHandler := handlers.MetricUpdatePathHandler(metricUpdatePathUsecase)
 	metricGetByIDHandler := handlers.MetricGetByIDPathHandler(metricGetByIDPathUsecase)
 	metricListHTMLHandler := handlers.MetricListHTMLHandler(metricListHTMLUsecase)
+	metricUpdateBodyHandler := handlers.MetricUpdateBodyHandler(metricUpdateBodyUsecase)
+	metricGetByIDBodyHandler := handlers.MetricGetByIDBodyHandler(metricGetByIDBodyUsecase)
 
 	metricRouter := routers.NewMetricRouter(
 		metricUpdateHandler,
 		metricGetByIDHandler,
 		metricListHTMLHandler,
+		metricUpdateBodyHandler,
+		metricGetByIDBodyHandler,
 	)
 
 	server := server.NewServer(config, metricRouter)

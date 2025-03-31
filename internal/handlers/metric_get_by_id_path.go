@@ -2,11 +2,9 @@ package handlers
 
 import (
 	"context"
-	"errors"
+	"go-metrics/internal/handlers/utils"
 	"go-metrics/internal/requests"
 	"go-metrics/internal/responses"
-	"go-metrics/internal/services"
-	"go-metrics/internal/validation"
 	"net/http"
 
 	"github.com/go-chi/chi"
@@ -24,27 +22,10 @@ func MetricGetByIDPathHandler(uc MetricGetByIDPathUsecase) http.HandlerFunc {
 		)
 		resp, err := uc.Execute(r.Context(), req)
 		if err != nil {
-			handleMetricGetByIDPathError(w, err)
+			handleMetricError(w, err)
 			return
 		}
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusOK)
-		w.Write(resp.ToResponse())
-	}
-}
+		utils.SendTextResponse(w, http.StatusOK, resp.ToResponse())
 
-func handleMetricGetByIDPathError(w http.ResponseWriter, err error) {
-	if errors.Is(err, validation.ErrEmptyName) {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	} else if errors.Is(err, validation.ErrInvalidType) {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	} else if errors.Is(err, services.ErrMetricNotFound) {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	} else {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
 }

@@ -2,7 +2,7 @@ package domain
 
 type Metric struct {
 	ID    string
-	MType string
+	Type  string
 	Delta *int64
 	Value *float64
 }

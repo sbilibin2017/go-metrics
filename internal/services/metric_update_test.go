@@ -21,19 +21,19 @@ func TestMetricUpdateService_Update(t *testing.T) {
 
 	metric := &domain.Metric{
 		ID:    "metric1",
-		MType: domain.Counter,
+		Type:  domain.Counter,
 		Delta: new(int64),
 	}
 	*metric.Delta = 5
 
 	existingMetrics := map[domain.MetricID]*domain.Metric{
-		{ID: "metric1", MType: domain.Counter}: {
+		{ID: "metric1", Type: domain.Counter}: {
 			ID:    "metric1",
-			MType: domain.Counter,
+			Type:  domain.Counter,
 			Delta: new(int64),
 		},
 	}
-	*existingMetrics[domain.MetricID{ID: "metric1", MType: domain.Counter}].Delta = 10
+	*existingMetrics[domain.MetricID{ID: "metric1", Type: domain.Counter}].Delta = 10
 
 	tests := []struct {
 		name          string

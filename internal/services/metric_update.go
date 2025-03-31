@@ -64,7 +64,7 @@ func (s *MetricUpdateService) findMetrics(
 ) (map[domain.MetricID]*domain.Metric, error) {
 	metricIDs := make([]*domain.MetricID, len(metrics))
 	for i, metric := range metrics {
-		metricIDs[i] = &domain.MetricID{ID: metric.ID, MType: metric.MType}
+		metricIDs[i] = &domain.MetricID{ID: metric.ID, Type: metric.Type}
 	}
 	return s.findRepo.Find(ctx, metricIDs)
 }
@@ -73,11 +73,11 @@ func (s *MetricUpdateService) updateMetrics(
 	ctx context.Context, metrics []*domain.Metric, existingMetrics map[domain.MetricID]*domain.Metric,
 ) error {
 	for i, metric := range metrics {
-		switch metric.MType {
+		switch metric.Type {
 		case domain.Counter:
 			if existingMetric, exists := existingMetrics[domain.MetricID{
-				ID:    metric.ID,
-				MType: metric.MType,
+				ID:   metric.ID,
+				Type: metric.Type,
 			}]; exists {
 				*metric.Delta += *existingMetric.Delta
 			}

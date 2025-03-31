@@ -17,7 +17,7 @@ func MetricListHTMLHandler(uc MetricListHTMLUsecase) http.HandlerFunc {
 		resp, err := uc.Execute(r.Context())
 		if err != nil {
 			log.Printf("Error processing request for %s: %v", r.URL.Path, err)
-			handleMetricListHTMLError(w, err)
+			handleMetricError(w, err)
 			return
 		}
 		log.Printf("Successfully processed request for %s", r.URL.Path)
@@ -25,9 +25,4 @@ func MetricListHTMLHandler(uc MetricListHTMLUsecase) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		w.Write(resp.ToResponse())
 	}
-}
-
-func handleMetricListHTMLError(w http.ResponseWriter, err error) {
-	// Error handling (Internal Server Error)
-	http.Error(w, err.Error(), http.StatusInternalServerError)
 }
