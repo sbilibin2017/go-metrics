@@ -33,3 +33,17 @@ func ValidateGaugeValue(value string) error {
 	}
 	return nil
 }
+
+func ValidateCounterPtrValue(value *int64) error {
+	if value == nil {
+		return ErrEmptyValue
+	}
+	return nil
+}
+
+func ValidateGaugePtrValue(value *float64) error {
+	if value == nil {
+		return ErrEmptyValue
+	}
+	return nil
+}
