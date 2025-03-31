@@ -3,16 +3,13 @@ package main
 import (
 	"context"
 	"go-metrics/cmd/server/app"
-	"go-metrics/internal/configs"
 	"os"
 	"os/signal"
 	"syscall"
 )
 
 func main() {
-	config := &configs.ServerConfig{
-		Address: ":8080",
-	}
+	config := app.ParseFlags()
 	srv := app.NewServer(config)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
