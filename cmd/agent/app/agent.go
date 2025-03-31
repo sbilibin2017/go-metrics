@@ -119,6 +119,7 @@ func (ma *MetricAgent) sendMetrics(ctx context.Context, metrics []domain.Metric)
 		resp, err := ma.client.R().
 			SetContext(ctx).
 			SetHeader("Content-Type", "application/json").
+			SetHeader("Content-Encoding", "gzip").
 			SetBody(metric).
 			Post(url)
 
