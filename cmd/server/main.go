@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"go-metrics/cmd/server/app"
+	"go-metrics/internal/logger"
 	"os"
 	"os/signal"
 	"syscall"
 )
 
 func main() {
+	logger.Init()
 	config := app.ParseFlags()
 	container := app.NewContainer(config)
 	worker := app.NewWorker(config, container)

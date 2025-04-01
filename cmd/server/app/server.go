@@ -2,7 +2,8 @@ package app
 
 import (
 	"context"
-	"go-metrics/internal/engines"
+	"database/sql"
+
 	"go-metrics/internal/handlers"
 	"go-metrics/internal/logger"
 	"go-metrics/internal/routers"
@@ -34,7 +35,7 @@ func NewServer(config *Config, container *Container, worker *Worker) *Server {
 		metricUpdateBodyHandler,
 		metricGetByIDBodyHandler,
 	)
-	metricRouter.Get("/ping", PingDBHandler(container.DBEngine))
+	metricRouter.Get("/ping", PingDBHandler(container.DB))
 
 	server := &http.Server{
 		Addr:    config.GetAddress(),
@@ -50,18 +51,11 @@ func NewServer(config *Config, container *Container, worker *Worker) *Server {
 }
 
 func (s *Server) Start(ctx context.Context) error {
-	if err := s.container.FileEngine.Open(s.config); err != nil {
-		logger.Logger.Errorw("failed to open file", "error", err)
-		return err
-	}
-
 	defer func() {
-
-		if err := s.container.FileEngine.Sync(); err != nil {
+		if err := s.container.File.Sync(); err != nil {
 			logger.Logger.Errorw("failed to sync file", "error", err)
 		}
-
-		if err := s.container.FileEngine.Close(); err != nil {
+		if err := s.container.File.Close(); err != nil {
 			logger.Logger.Errorw("failed to close file", "error", err)
 		}
 	}()
@@ -71,15 +65,8 @@ func (s *Server) Start(ctx context.Context) error {
 
 	if s.config.GetDatabaseDSN() != "" {
 		logger.Logger.Infow("Opening database connection", "dsn", s.config.GetDatabaseDSN())
-		err := s.container.DBEngine.Open(ctx, s.config)
-		if err != nil {
-			logger.Logger.Errorw("failed to connect to db", "error", err)
-			return err
-		} else {
-			logger.Logger.Infow("Database connection established successfully")
-		}
 		defer func() {
-			if err := s.container.DBEngine.Close(); err != nil {
+			if err := s.container.DB.Close(); err != nil {
 				logger.Logger.Errorw("failed to close db connection", "error", err)
 			} else {
 				logger.Logger.Infow("Database connection closed successfully")
@@ -109,7 +96,7 @@ func (s *Server) Start(ctx context.Context) error {
 	return nil
 }
 
-func PingDBHandler(db *engines.DBEngine) http.HandlerFunc {
+func PingDBHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if db == nil {
 			http.Error(w, "Database connection error", http.StatusInternalServerError)
@@ -119,5 +106,7 @@ func PingDBHandler(db *engines.DBEngine) http.HandlerFunc {
 			http.Error(w, "Database connection error", http.StatusInternalServerError)
 			return
 		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Database connection successful"))
 	}
 }

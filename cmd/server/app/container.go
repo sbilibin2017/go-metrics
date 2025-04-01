@@ -1,23 +1,22 @@
 package app
 
 import (
+	"database/sql"
 	"go-metrics/internal/domain"
-	"go-metrics/internal/engines"
+	"go-metrics/internal/logger"
 	"go-metrics/internal/repositories"
 	"go-metrics/internal/services"
 	"go-metrics/internal/unitofwork"
 	"go-metrics/internal/usecases"
+	"os"
+	"path/filepath"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type Container struct {
-	MemoryStorage            *engines.MemoryStorage[domain.MetricID, *domain.Metric]
-	MemorySetter             *engines.MemorySetter[domain.MetricID, *domain.Metric]
-	MemoryGetter             *engines.MemoryGetter[domain.MetricID, *domain.Metric]
-	MemoryRanger             *engines.MemoryRanger[domain.MetricID, *domain.Metric]
-	FileEngine               *engines.FileEngine
-	DBEngine                 *engines.DBEngine
-	FileWriterEngine         *engines.FileWriterEngine[*domain.Metric]
-	FileGeneratorEngine      *engines.FileGeneratorEngine[*domain.Metric]
+	File                     *os.File
+	DB                       *sql.DB
 	SaveFileRepo             *repositories.MetricFileSaveRepository
 	FindFileRepo             *repositories.MetricFileFindRepository
 	SaveMemoryRepo           *repositories.MetricMemorySaveRepository
@@ -34,34 +33,49 @@ type Container struct {
 }
 
 func NewContainer(config *Config) *Container {
-	memory := engines.NewMemoryStorage[domain.MetricID, *domain.Metric]()
-	memorySetter := engines.NewMemorySetter(memory)
-	memoryGetter := engines.NewMemoryGetter(memory)
-	memoryRanger := engines.NewMemoryRanger(memory)
-
-	var fileEngine *engines.FileEngine
-	var fileWriterEngine *engines.FileWriterEngine[*domain.Metric]
-	var fileGeneratorEngine *engines.FileGeneratorEngine[*domain.Metric]
+	var file *os.File
 	if config.GetFileStoragePath() != "" {
-		fileEngine = engines.NewFileEngine()
-		fileWriterEngine = engines.NewFileWriterEngine[*domain.Metric](fileEngine)
-		fileGeneratorEngine = engines.NewFileGeneratorEngine[*domain.Metric](fileEngine)
+		logger.Logger.Infow("Opening file storage", "path", config.GetFileStoragePath())
+		dir := filepath.Dir(config.GetFileStoragePath())
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			logger.Logger.Errorw("Failed to create directories", "error", err)
+			return nil
+		}
+		var err error
+		file, err = os.OpenFile(config.GetFileStoragePath(), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
+		if err != nil {
+			logger.Logger.Errorw("Failed to open file", "error", err)
+			return nil
+		}
 	}
 
-	var dbEngine *engines.DBEngine
+	var db *sql.DB
 	if config.GetDatabaseDSN() != "" {
-		dbEngine = engines.NewDBEngine()
+		logger.Logger.Infow("Connecting to database", "dsn", config.GetDatabaseDSN())
+		var err error
+		db, err = sql.Open("pgx", config.GetDatabaseDSN())
+		if err != nil {
+			logger.Logger.Errorw("Failed to open database connection", "error", err)
+			return nil
+		}
+		if err := db.Ping(); err != nil {
+			logger.Logger.Errorw("Failed to ping database", "error", err)
+			db.Close()
+			return nil
+		}
+		logger.Logger.Infow("Database connection established successfully")
 	}
 
 	var saveFileRepo *repositories.MetricFileSaveRepository
 	var findFileRepo *repositories.MetricFileFindRepository
-	if config.GetFileStoragePath() != "" {
-		saveFileRepo = repositories.NewMetricFileSaveRepository(fileWriterEngine)
-		findFileRepo = repositories.NewMetricFileFindRepository(fileGeneratorEngine)
+	if file != nil {
+		saveFileRepo = repositories.NewMetricFileSaveRepository(file)
+		findFileRepo = repositories.NewMetricFileFindRepository(file)
 	}
 
-	saveMemoryRepo := repositories.NewMetricMemorySaveRepository(memorySetter)
-	findMemoryRepo := repositories.NewMetricMemoryFindRepository(memoryGetter, memoryRanger)
+	data := make(map[domain.MetricID]*domain.Metric)
+	saveMemoryRepo := repositories.NewMetricMemorySaveRepository(data)
+	findMemoryRepo := repositories.NewMetricMemoryFindRepository(data)
 
 	uow := unitofwork.NewMemoryUnitOfWork()
 
@@ -76,14 +90,8 @@ func NewContainer(config *Config) *Container {
 	metricGetByIDBodyUsecase := usecases.NewMetricGetByIDBodyUsecase(metricGetByIDService)
 
 	return &Container{
-		MemoryStorage:            memory,
-		MemorySetter:             memorySetter,
-		MemoryGetter:             memoryGetter,
-		MemoryRanger:             memoryRanger,
-		FileEngine:               fileEngine,
-		DBEngine:                 dbEngine,
-		FileWriterEngine:         fileWriterEngine,
-		FileGeneratorEngine:      fileGeneratorEngine,
+		File:                     file,
+		DB:                       db,
 		SaveFileRepo:             saveFileRepo,
 		FindFileRepo:             findFileRepo,
 		SaveMemoryRepo:           saveMemoryRepo,
