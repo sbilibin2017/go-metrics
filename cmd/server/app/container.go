@@ -15,6 +15,7 @@ type Container struct {
 	MemoryGetter             *engines.MemoryGetter[domain.MetricID, *domain.Metric]
 	MemoryRanger             *engines.MemoryRanger[domain.MetricID, *domain.Metric]
 	FileEngine               *engines.FileEngine
+	DBEngine                 *engines.DBEngine
 	FileWriterEngine         *engines.FileWriterEngine[*domain.Metric]
 	FileGeneratorEngine      *engines.FileGeneratorEngine[*domain.Metric]
 	SaveFileRepo             *repositories.MetricFileSaveRepository
@@ -47,6 +48,11 @@ func NewContainer(config *Config) *Container {
 		fileGeneratorEngine = engines.NewFileGeneratorEngine[*domain.Metric](fileEngine)
 	}
 
+	var dbEngine *engines.DBEngine
+	if config.GetDatabaseDSN() != "" {
+		dbEngine = engines.NewDBEngine()
+	}
+
 	var saveFileRepo *repositories.MetricFileSaveRepository
 	var findFileRepo *repositories.MetricFileFindRepository
 	if config.GetFileStoragePath() != "" {
@@ -75,6 +81,7 @@ func NewContainer(config *Config) *Container {
 		MemoryGetter:             memoryGetter,
 		MemoryRanger:             memoryRanger,
 		FileEngine:               fileEngine,
+		DBEngine:                 dbEngine,
 		FileWriterEngine:         fileWriterEngine,
 		FileGeneratorEngine:      fileGeneratorEngine,
 		SaveFileRepo:             saveFileRepo,
