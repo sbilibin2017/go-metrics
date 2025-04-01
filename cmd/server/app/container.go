@@ -17,6 +17,8 @@ import (
 type Container struct {
 	File                     *os.File
 	DB                       *sql.DB
+	SaveDBRepo               *repositories.MetricDBSaveRepository
+	FindDBRepo               *repositories.MetricDBFindRepository
 	SaveFileRepo             *repositories.MetricFileSaveRepository
 	FindFileRepo             *repositories.MetricFileFindRepository
 	SaveMemoryRepo           *repositories.MetricMemorySaveRepository
@@ -66,6 +68,10 @@ func NewContainer(config *Config) *Container {
 		logger.Logger.Infow("Database connection established successfully")
 	}
 
+	data := make(map[domain.MetricID]*domain.Metric)
+	saveMemoryRepo := repositories.NewMetricMemorySaveRepository(data)
+	findMemoryRepo := repositories.NewMetricMemoryFindRepository(data)
+
 	var saveFileRepo *repositories.MetricFileSaveRepository
 	var findFileRepo *repositories.MetricFileFindRepository
 	if file != nil {
@@ -73,15 +79,33 @@ func NewContainer(config *Config) *Container {
 		findFileRepo = repositories.NewMetricFileFindRepository(file)
 	}
 
-	data := make(map[domain.MetricID]*domain.Metric)
-	saveMemoryRepo := repositories.NewMetricMemorySaveRepository(data)
-	findMemoryRepo := repositories.NewMetricMemoryFindRepository(data)
+	var saveDBRepo *repositories.MetricDBSaveRepository
+	var findDBRepo *repositories.MetricDBFindRepository
+	if file != nil {
+		saveDBRepo = repositories.NewMetricDBSaveRepository(db)
+		findDBRepo = repositories.NewMetricDBFindRepository(db)
+	}
 
 	uow := unitofwork.NewMemoryUnitOfWork()
+	uowFile := unitofwork.NewFileUnitOfWork()
+	uowDB := unitofwork.NewDBUnitOfWork(db)
 
-	metricUpdateService := services.NewMetricUpdateService(saveMemoryRepo, findMemoryRepo, uow)
-	metricGetByIDService := services.NewMetricGetByIDService(findMemoryRepo)
-	metricListService := services.NewMetricListService(findMemoryRepo)
+	var metricUpdateService *services.MetricUpdateService
+	var metricGetByIDService *services.MetricGetByIDService
+	var metricListService *services.MetricListService
+	if config.GetDatabaseDSN() != "" {
+		metricUpdateService = services.NewMetricUpdateService(saveDBRepo, findDBRepo, uowDB)
+		metricGetByIDService = services.NewMetricGetByIDService(findDBRepo)
+		metricListService = services.NewMetricListService(findDBRepo)
+	} else if config.GetFileStoragePath() != "" {
+		metricUpdateService = services.NewMetricUpdateService(saveFileRepo, findFileRepo, uowFile)
+		metricGetByIDService = services.NewMetricGetByIDService(findFileRepo)
+		metricListService = services.NewMetricListService(findFileRepo)
+	} else {
+		metricUpdateService = services.NewMetricUpdateService(saveMemoryRepo, findMemoryRepo, uow)
+		metricGetByIDService = services.NewMetricGetByIDService(findMemoryRepo)
+		metricListService = services.NewMetricListService(findMemoryRepo)
+	}
 
 	metricUpdatePathUsecase := usecases.NewMetricUpdatePathUsecase(metricUpdateService)
 	metricGetByIDPathUsecase := usecases.NewMetricGetByIDPathUsecase(metricGetByIDService)
@@ -92,6 +116,8 @@ func NewContainer(config *Config) *Container {
 	return &Container{
 		File:                     file,
 		DB:                       db,
+		SaveDBRepo:               saveDBRepo,
+		FindDBRepo:               findDBRepo,
 		SaveFileRepo:             saveFileRepo,
 		FindFileRepo:             findFileRepo,
 		SaveMemoryRepo:           saveMemoryRepo,

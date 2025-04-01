@@ -21,23 +21,16 @@ func NewWorker(config *Config, container *Container) *Worker {
 
 func (w *Worker) Start(ctx context.Context) {
 	logger.Logger.Infow("Server is starting, attempting to restore data...")
-	w.restore(ctx)
+	w.Restore(ctx)
 	ticker := time.NewTicker(time.Duration(w.config.StoreInterval) * time.Second)
 	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			logger.Logger.Infow("Server is shutting down, saving data...")
-			w.save(ctx)
-			return
-		case <-ticker.C:
-			logger.Logger.Infow("Periodically saving data...")
-			w.save(ctx)
-		}
+	for range ticker.C {
+		logger.Logger.Infow("Periodically saving data...")
+		w.Save(ctx)
 	}
 }
 
-func (w *Worker) restore(ctx context.Context) {
+func (w *Worker) Restore(ctx context.Context) {
 	if w.config.Restore {
 		var metrics []*domain.Metric
 		var err error
@@ -49,22 +42,42 @@ func (w *Worker) restore(ctx context.Context) {
 				metrics = append(metrics, metric)
 			}
 			if len(metrics) > 0 {
-				err = w.container.SaveMemoryRepo.Save(ctx, metrics)
-				if err != nil {
-					logger.Logger.Errorw("Error saving restored data to memory", "error", err)
+				if w.config.GetDatabaseDSN() != "" {
+					err = w.container.SaveDBRepo.Save(ctx, metrics)
+					if err != nil {
+						logger.Logger.Errorw("Error saving restored data to memory", "error", err)
+					} else {
+						logger.Logger.Infow("Data successfully restored and saved to memory")
+					}
 				} else {
-					logger.Logger.Infow("Data successfully restored and saved to memory")
+					err = w.container.SaveFileRepo.Save(ctx, metrics)
+					if err != nil {
+						logger.Logger.Errorw("Error saving restored data to memory", "error", err)
+					} else {
+						logger.Logger.Infow("Data successfully restored and saved to memory")
+					}
 				}
 			}
 		}
 	}
 }
 
-func (w *Worker) save(ctx context.Context) {
-	metricsMap, err := w.container.FindMemoryRepo.Find(ctx, []*domain.MetricID{})
-	if err != nil {
-		logger.Logger.Errorw("Failed to retrieve metrics from memory", "error", err)
-		return
+func (w *Worker) Save(ctx context.Context) {
+	var metricsMap map[domain.MetricID]*domain.Metric
+	var err error
+	if w.config.GetDatabaseDSN() != "" {
+		metricsMap, err = w.container.FindDBRepo.Find(ctx, []*domain.MetricID{})
+		if err != nil {
+			logger.Logger.Errorw("Failed to retrieve metrics from memory", "error", err)
+			return
+		}
+	} else {
+		metricsMap, err = w.container.FindFileRepo.Find(ctx, []*domain.MetricID{})
+		if err != nil {
+			logger.Logger.Errorw("Failed to retrieve metrics from memory", "error", err)
+			return
+		}
+
 	}
 	var metrics []*domain.Metric
 	for _, metric := range metricsMap {

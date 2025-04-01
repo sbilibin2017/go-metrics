@@ -72,10 +72,7 @@ func (s *Server) Start(ctx context.Context) error {
 				logger.Logger.Infow("Database connection closed successfully")
 			}
 		}()
-		go func() {
-			logger.Logger.Infow("Starting worker")
-			s.worker.Start(ctx)
-		}()
+		CreateMetricTable(s.container.DB)
 	}
 
 	go func() error {
@@ -90,6 +87,8 @@ func (s *Server) Start(ctx context.Context) error {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
+	s.worker.Save(shutdownCtx)
 
 	s.server.Shutdown(shutdownCtx)
 
@@ -109,4 +108,19 @@ func PingDBHandler(db *sql.DB) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Database connection successful"))
 	}
+}
+
+func CreateMetricTable(db *sql.DB) error {
+	_, err := db.Exec(`
+	CREATE TABLE IF NOT EXISTS metrics (
+		id VARCHAR(255) NOT NULL,             
+		type VARCHAR(255) NOT NULL,  
+		delta BIGINT,                
+		value DOUBLE PRECISION,      
+		PRIMARY KEY (id, type)     
+	);`)
+	if err != nil {
+		return err
+	}
+	return nil
 }
