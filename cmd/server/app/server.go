@@ -87,7 +87,6 @@ func (s *Server) Start(ctx context.Context) error {
 	}()
 
 	<-ctx.Done()
-
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
