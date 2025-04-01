@@ -1,23 +1,24 @@
 package main
 
 import (
-	"context"
 	"go-metrics/cmd/server/app"
+	"go-metrics/internal/context"
 	"go-metrics/internal/logger"
 	"os"
-	"os/signal"
-	"syscall"
 )
 
 func main() {
 	logger.Init()
 	config := app.ParseFlags()
-	container := app.NewContainer(config)
+	container, err := app.NewContainer(config)
+	if err != nil {
+		os.Exit(1)
+	}
 	worker := app.NewWorker(config, container)
 	server := app.NewServer(config, container, worker)
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	ctx, stop := context.NewContext()
 	defer stop()
-	err := server.Start(ctx)
+	err = server.Start(ctx)
 	if err != nil {
 		os.Exit(1)
 	}

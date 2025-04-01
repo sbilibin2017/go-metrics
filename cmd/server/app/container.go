@@ -3,25 +3,29 @@ package app
 import (
 	"database/sql"
 	"go-metrics/internal/domain"
-	"go-metrics/internal/logger"
 	"go-metrics/internal/repositories"
 	"go-metrics/internal/services"
+	"go-metrics/internal/storages"
 	"go-metrics/internal/unitofwork"
 	"go-metrics/internal/usecases"
 	"os"
-	"path/filepath"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 type Container struct {
-	File                     *os.File
 	DB                       *sql.DB
-	SaveFileRepo             *repositories.MetricFileSaveRepository
-	FindFileRepo             *repositories.MetricFileFindRepository
-	SaveMemoryRepo           *repositories.MetricMemorySaveRepository
-	FindMemoryRepo           *repositories.MetricMemoryFindRepository
-	UOW                      *unitofwork.MemoryUnitOfWork
+	File                     *os.File
+	Memory                   map[domain.MetricID]*domain.Metric
+	MetricSaveDBRepo         *repositories.MetricDBSaveRepository
+	MetricFindDBRepo         *repositories.MetricDBFindRepository
+	MetricSaveFileRepo       *repositories.MetricFileSaveRepository
+	MetricFindFileRepo       *repositories.MetricFileFindRepository
+	MetricSaveMemoryRepo     *repositories.MetricMemorySaveRepository
+	MetricFindMemoryRepo     *repositories.MetricMemoryFindRepository
+	DBUOW                    *unitofwork.DBUnitOfWork
+	FileUOW                  *unitofwork.FileUnitOfWork
+	MemoryUOW                *unitofwork.MemoryUnitOfWork
 	MetricUpdateService      *services.MetricUpdateService
 	MetricGetByIDService     *services.MetricGetByIDService
 	MetricListService        *services.MetricListService
@@ -32,78 +36,83 @@ type Container struct {
 	MetricGetByIDBodyUsecase *usecases.MetricGetByIDBodyUsecase
 }
 
-func NewContainer(config *Config) *Container {
-	var file *os.File
-	if config.GetFileStoragePath() != "" {
-		logger.Logger.Infow("Opening file storage", "path", config.GetFileStoragePath())
-		dir := filepath.Dir(config.GetFileStoragePath())
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			logger.Logger.Errorw("Failed to create directories", "error", err)
-			return nil
-		}
-		var err error
-		file, err = os.OpenFile(config.GetFileStoragePath(), os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
+func NewContainer(config *Config) (*Container, error) {
+	container := &Container{
+		Memory: make(map[domain.MetricID]*domain.Metric),
+	}
+
+	if dsn := config.GetDatabaseDSN(); dsn != "" {
+		db, err := storages.NewDB(config)
 		if err != nil {
-			logger.Logger.Errorw("Failed to open file", "error", err)
-			return nil
+			return nil, err
 		}
+		container.DB = db
+		container.MetricSaveDBRepo = repositories.NewMetricDBSaveRepository(db)
+		container.MetricFindDBRepo = repositories.NewMetricDBFindRepository(db)
+		container.DBUOW = unitofwork.NewDBUnitOfWork(db)
 	}
 
-	var db *sql.DB
-	if config.GetDatabaseDSN() != "" {
-		logger.Logger.Infow("Connecting to database", "dsn", config.GetDatabaseDSN())
-		var err error
-		db, err = sql.Open("pgx", config.GetDatabaseDSN())
+	if filePath := config.GetFileStoragePath(); filePath != "" {
+		file, err := storages.NewFile(config)
 		if err != nil {
-			logger.Logger.Errorw("Failed to open database connection", "error", err)
-			return nil
+			return nil, err
 		}
-		if err := db.Ping(); err != nil {
-			logger.Logger.Errorw("Failed to ping database", "error", err)
-			db.Close()
-			return nil
-		}
-		logger.Logger.Infow("Database connection established successfully")
+		container.File = file
+		container.MetricSaveFileRepo = repositories.NewMetricFileSaveRepository(file)
+		container.MetricFindFileRepo = repositories.NewMetricFileFindRepository(file)
+		container.FileUOW = unitofwork.NewFileUnitOfWork()
 	}
 
-	var saveFileRepo *repositories.MetricFileSaveRepository
-	var findFileRepo *repositories.MetricFileFindRepository
-	if file != nil {
-		saveFileRepo = repositories.NewMetricFileSaveRepository(file)
-		findFileRepo = repositories.NewMetricFileFindRepository(file)
+	if container.DB == nil && container.File == nil {
+		container.Memory = storages.NewMemory[domain.MetricID, *domain.Metric]()
+		container.MetricSaveMemoryRepo = repositories.NewMetricMemorySaveRepository(container.Memory)
+		container.MetricFindMemoryRepo = repositories.NewMetricMemoryFindRepository(container.Memory)
+		container.MemoryUOW = unitofwork.NewMemoryUnitOfWork()
 	}
 
-	data := make(map[domain.MetricID]*domain.Metric)
-	saveMemoryRepo := repositories.NewMetricMemorySaveRepository(data)
-	findMemoryRepo := repositories.NewMetricMemoryFindRepository(data)
-
-	uow := unitofwork.NewMemoryUnitOfWork()
-
-	metricUpdateService := services.NewMetricUpdateService(saveMemoryRepo, findMemoryRepo, uow)
-	metricGetByIDService := services.NewMetricGetByIDService(findMemoryRepo)
-	metricListService := services.NewMetricListService(findMemoryRepo)
-
-	metricUpdatePathUsecase := usecases.NewMetricUpdatePathUsecase(metricUpdateService)
-	metricGetByIDPathUsecase := usecases.NewMetricGetByIDPathUsecase(metricGetByIDService)
-	metricListHTMLUsecase := usecases.NewMetricListHTMLUsecase(metricListService)
-	metricUpdateBodyUsecase := usecases.NewMetricUpdateBodyUsecase(metricUpdateService)
-	metricGetByIDBodyUsecase := usecases.NewMetricGetByIDBodyUsecase(metricGetByIDService)
-
-	return &Container{
-		File:                     file,
-		DB:                       db,
-		SaveFileRepo:             saveFileRepo,
-		FindFileRepo:             findFileRepo,
-		SaveMemoryRepo:           saveMemoryRepo,
-		FindMemoryRepo:           findMemoryRepo,
-		UOW:                      uow,
-		MetricUpdateService:      metricUpdateService,
-		MetricGetByIDService:     metricGetByIDService,
-		MetricListService:        metricListService,
-		MetricUpdatePathUsecase:  metricUpdatePathUsecase,
-		MetricGetByIDPathUsecase: metricGetByIDPathUsecase,
-		MetricListHTMLUsecase:    metricListHTMLUsecase,
-		MetricUpdateBodyUsecase:  metricUpdateBodyUsecase,
-		MetricGetByIDBodyUsecase: metricGetByIDBodyUsecase,
+	if container.MetricSaveDBRepo != nil {
+		container.MetricUpdateService = services.NewMetricUpdateService(
+			container.MetricSaveDBRepo,
+			container.MetricFindDBRepo,
+			container.DBUOW,
+		)
+		container.MetricGetByIDService = services.NewMetricGetByIDService(
+			container.MetricFindDBRepo,
+		)
+		container.MetricListService = services.NewMetricListService(
+			container.MetricFindDBRepo,
+		)
+	} else if container.MetricSaveFileRepo != nil {
+		container.MetricUpdateService = services.NewMetricUpdateService(
+			container.MetricSaveFileRepo,
+			container.MetricFindFileRepo,
+			container.FileUOW,
+		)
+		container.MetricGetByIDService = services.NewMetricGetByIDService(
+			container.MetricFindFileRepo,
+		)
+		container.MetricListService = services.NewMetricListService(
+			container.MetricFindFileRepo,
+		)
+	} else {
+		container.MetricUpdateService = services.NewMetricUpdateService(
+			container.MetricSaveMemoryRepo,
+			container.MetricFindMemoryRepo,
+			container.MemoryUOW,
+		)
+		container.MetricGetByIDService = services.NewMetricGetByIDService(
+			container.MetricFindMemoryRepo,
+		)
+		container.MetricListService = services.NewMetricListService(
+			container.MetricFindMemoryRepo,
+		)
 	}
+
+	container.MetricUpdatePathUsecase = usecases.NewMetricUpdatePathUsecase(container.MetricUpdateService)
+	container.MetricUpdateBodyUsecase = usecases.NewMetricUpdateBodyUsecase(container.MetricUpdateService)
+	container.MetricGetByIDPathUsecase = usecases.NewMetricGetByIDPathUsecase(container.MetricGetByIDService)
+	container.MetricGetByIDBodyUsecase = usecases.NewMetricGetByIDBodyUsecase(container.MetricGetByIDService)
+	container.MetricListHTMLUsecase = usecases.NewMetricListHTMLUsecase(container.MetricListService)
+
+	return container, nil
 }
