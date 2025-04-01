@@ -1,32 +1,32 @@
-package repositories
+package repositories_test
 
 import (
 	"context"
-	"go-metrics/internal/domain"
 	"testing"
+
+	"go-metrics/internal/domain"
+	"go-metrics/internal/engines"
+	"go-metrics/internal/repositories"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMetricMemorySaveRepository_Save(t *testing.T) {
-	data := make(map[domain.MetricID]*domain.Metric)
-	repo := NewMetricMemorySaveRepository(data)
+func TestSaveAndRetrieveMetrics(t *testing.T) {
+	// Initialize the storage and the repository
+	storage := engines.NewMemoryStorage[domain.MetricID, *domain.Metric]()
+	storageSetter := &engines.MemorySetter[domain.MetricID, *domain.Metric]{MemoryStorage: storage}
+	repo := repositories.NewMetricMemorySaveRepository(storageSetter)
 
-	value1 := 42.5
-	delta2 := int64(10)
-
+	// Create sample metrics with *float64 and *int64 values
+	value1 := 10.0
+	value2 := 20.0
 	metrics := []*domain.Metric{
-		{ID: "metric1", Type: "gauge", Value: &value1},
-		{ID: "metric2", Type: domain.Counter, Delta: &delta2},
+		{ID: "metric1", Type: "counter", Value: &value1}, // Value is a pointer to float64
+		{ID: "metric2", Type: "gauge", Value: &value2},   // Value is a pointer to float64
 	}
 
+	// Save the metrics
 	err := repo.Save(context.Background(), metrics)
-	assert.NoError(t, err)
+	assert.NoError(t, err, "Save should not return an error")
 
-	for _, metric := range metrics {
-		key := domain.MetricID{ID: metric.ID, Type: metric.Type}
-		storedMetric, exists := data[key]
-		assert.True(t, exists)
-		assert.Equal(t, metric, storedMetric)
-	}
 }

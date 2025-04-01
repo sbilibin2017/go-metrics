@@ -1,44 +1,30 @@
 package app
 
 import (
-	"go-metrics/internal/configs"
-	"go-metrics/internal/domain"
+	"context"
 	"go-metrics/internal/handlers"
 	"go-metrics/internal/logger"
-	"go-metrics/internal/repositories"
 	"go-metrics/internal/routers"
-	"go-metrics/internal/server"
-	"go-metrics/internal/services"
-	"go-metrics/internal/unitofwork"
-	"go-metrics/internal/usecases"
+	"net/http"
+	"time"
 )
 
-func NewServer(config *configs.ServerConfig) *server.Server {
+type Server struct {
+	config    *Config
+	container *Container
+	server    *http.Server
+	worker    *Worker
+}
+
+func NewServer(config *Config, container *Container, worker *Worker) *Server {
 	logger.Init()
 	defer logger.Logger.Sync()
 
-	data := make(map[domain.MetricID]*domain.Metric)
-
-	saveRepo := repositories.NewMetricMemorySaveRepository(data)
-	findRepo := repositories.NewMetricMemoryFindRepository(data)
-
-	uow := unitofwork.NewMemoryUnitOfWork()
-
-	metricUpdateService := services.NewMetricUpdateService(saveRepo, findRepo, uow)
-	metricGetByIDService := services.NewMetricGetByIDService(findRepo)
-	metricListService := services.NewMetricListService(findRepo)
-
-	metricUpdatePathUsecase := usecases.NewMetricUpdatePathUsecase(metricUpdateService)
-	metricGetByIDPathUsecase := usecases.NewMetricGetByIDPathUsecase(metricGetByIDService)
-	metricListHTMLUsecase := usecases.NewMetricListHTMLUsecase(metricListService)
-	metricUpdateBodyUsecase := usecases.NewMetricUpdateBodyUsecase(metricUpdateService)
-	metricGetByIDBodyUsecase := usecases.NewMetricGetByIDBodyUsecase(metricGetByIDService)
-
-	metricUpdateHandler := handlers.MetricUpdatePathHandler(metricUpdatePathUsecase)
-	metricGetByIDHandler := handlers.MetricGetByIDPathHandler(metricGetByIDPathUsecase)
-	metricListHTMLHandler := handlers.MetricListHTMLHandler(metricListHTMLUsecase)
-	metricUpdateBodyHandler := handlers.MetricUpdateBodyHandler(metricUpdateBodyUsecase)
-	metricGetByIDBodyHandler := handlers.MetricGetByIDBodyHandler(metricGetByIDBodyUsecase)
+	metricUpdateHandler := handlers.MetricUpdatePathHandler(container.MetricUpdatePathUsecase)
+	metricGetByIDHandler := handlers.MetricGetByIDPathHandler(container.MetricGetByIDPathUsecase)
+	metricListHTMLHandler := handlers.MetricListHTMLHandler(container.MetricListHTMLUsecase)
+	metricUpdateBodyHandler := handlers.MetricUpdateBodyHandler(container.MetricUpdateBodyUsecase)
+	metricGetByIDBodyHandler := handlers.MetricGetByIDBodyHandler(container.MetricGetByIDBodyUsecase)
 
 	metricRouter := routers.NewMetricRouter(
 		metricUpdateHandler,
@@ -48,7 +34,54 @@ func NewServer(config *configs.ServerConfig) *server.Server {
 		metricGetByIDBodyHandler,
 	)
 
-	server := server.NewServer(config, metricRouter)
+	server := &http.Server{
+		Addr:    config.GetAddress(),
+		Handler: metricRouter,
+	}
 
-	return server
+	return &Server{
+		config:    config,
+		container: container,
+		server:    server,
+		worker:    worker,
+	}
+}
+
+func (s *Server) Start(ctx context.Context) error {
+	if err := s.container.FileEngine.Open(s.config); err != nil {
+		logger.Logger.Errorw("failed to open file", "error", err)
+		return err
+	}
+
+	defer func() {
+
+		if err := s.container.FileEngine.Sync(); err != nil {
+			logger.Logger.Errorw("failed to sync file", "error", err)
+		}
+
+		if err := s.container.FileEngine.Close(); err != nil {
+			logger.Logger.Errorw("failed to close file", "error", err)
+		}
+	}()
+
+	go func() {
+		s.worker.Start(ctx)
+	}()
+
+	go func() error {
+		err := s.server.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			return err
+		}
+		return nil
+	}()
+
+	<-ctx.Done()
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	s.server.Shutdown(shutdownCtx)
+
+	return nil
 }

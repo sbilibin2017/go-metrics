@@ -1,11 +1,11 @@
-package configs
+package app
 
-type AgentConfig struct {
+type Config struct {
 	Address        string
 	PollInterval   int
 	ReportInterval int
 }
 
-func (c *AgentConfig) GetAddress() string {
+func (c *Config) GetAddress() string {
 	return c.Address
 }
