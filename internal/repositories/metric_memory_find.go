@@ -3,21 +3,20 @@ package repositories
 import (
 	"context"
 	"go-metrics/internal/domain"
-	"go-metrics/internal/engines"
 	"sync"
 )
 
 type MetricMemoryFindRepository struct {
-	g  *engines.MemoryGetter[domain.MetricID, *domain.Metric]
-	r  *engines.MemoryRanger[domain.MetricID, *domain.Metric]
-	mu sync.Mutex
+	data map[domain.MetricID]*domain.Metric
+	mu   sync.Mutex
 }
 
 func NewMetricMemoryFindRepository(
-	g *engines.MemoryGetter[domain.MetricID, *domain.Metric],
-	r *engines.MemoryRanger[domain.MetricID, *domain.Metric],
+	data map[domain.MetricID]*domain.Metric,
 ) *MetricMemoryFindRepository {
-	return &MetricMemoryFindRepository{g: g, r: r}
+	return &MetricMemoryFindRepository{
+		data: data,
+	}
 }
 
 func (repo *MetricMemoryFindRepository) Find(
@@ -25,22 +24,17 @@ func (repo *MetricMemoryFindRepository) Find(
 ) (map[domain.MetricID]*domain.Metric, error) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
-	filterMap := make(map[domain.MetricID]struct{})
-	for _, filter := range filters {
-		if filter != nil {
-			filterMap[domain.MetricID{ID: filter.ID, Type: filter.Type}] = struct{}{}
-		}
-	}
 	result := make(map[domain.MetricID]*domain.Metric)
 	if len(filters) == 0 {
-		repo.r.Range(func(key domain.MetricID, value *domain.Metric) bool {
+		for key, value := range repo.data {
 			result[key] = value
-			return true
-		})
+		}
 	} else {
-		for filterKey := range filterMap {
-			if metric, found := repo.g.Get(filterKey); found {
-				result[filterKey] = metric
+		for _, filter := range filters {
+			if filter != nil {
+				if metric, found := repo.data[*filter]; found {
+					result[*filter] = metric
+				}
 			}
 		}
 	}

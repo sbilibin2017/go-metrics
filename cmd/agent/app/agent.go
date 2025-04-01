@@ -28,7 +28,6 @@ func NewMetricAgent(config *Config) *MetricAgent {
 }
 
 func (ma *MetricAgent) Start(ctx context.Context) error {
-	logger.Init()
 	tickerPoll := time.NewTicker(time.Duration(ma.config.PollInterval) * time.Second)
 	tickerReport := time.NewTicker(time.Duration(ma.config.ReportInterval) * time.Second)
 	defer tickerPoll.Stop()
