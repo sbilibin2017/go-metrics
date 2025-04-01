@@ -36,17 +36,35 @@ func NewMetricUpdateService(
 	}
 }
 
+var ErrMetricIsNotUpdated = errors.New("metric is not updated")
+
 func (s *MetricUpdateService) Update(
 	ctx context.Context, metrics []*domain.Metric,
 ) ([]*domain.Metric, error) {
 	var updatedMetrics []*domain.Metric
 	err := s.uow.Do(ctx, func() error {
-		existingMetrics, err := s.findMetrics(ctx, metrics)
+		metricIDs := make([]*domain.MetricID, len(metrics))
+		for i, metric := range metrics {
+			metricIDs[i] = &domain.MetricID{ID: metric.ID, Type: metric.Type}
+		}
+		existingMetrics, err := s.findRepo.Find(ctx, metricIDs)
 		if err != nil {
 			return ErrMetricIsNotUpdated
 		}
-		if err := s.updateMetrics(ctx, metrics, existingMetrics); err != nil {
-			return err
+		for i, metric := range metrics {
+			switch metric.Type {
+			case domain.Counter:
+				if existingMetric, exists := existingMetrics[domain.MetricID{
+					ID:   metric.ID,
+					Type: metric.Type,
+				}]; exists {
+					*metric.Delta += *existingMetric.Delta
+				}
+			}
+			metrics[i] = metric
+		}
+		if err := s.saveRepo.Save(ctx, metrics); err != nil {
+			return ErrMetricIsNotUpdated
 		}
 		updatedMetrics = metrics
 		return nil
@@ -55,37 +73,4 @@ func (s *MetricUpdateService) Update(
 		return nil, err
 	}
 	return updatedMetrics, nil
-}
-
-var ErrMetricIsNotUpdated = errors.New("metric is not updated")
-
-func (s *MetricUpdateService) findMetrics(
-	ctx context.Context, metrics []*domain.Metric,
-) (map[domain.MetricID]*domain.Metric, error) {
-	metricIDs := make([]*domain.MetricID, len(metrics))
-	for i, metric := range metrics {
-		metricIDs[i] = &domain.MetricID{ID: metric.ID, Type: metric.Type}
-	}
-	return s.findRepo.Find(ctx, metricIDs)
-}
-
-func (s *MetricUpdateService) updateMetrics(
-	ctx context.Context, metrics []*domain.Metric, existingMetrics map[domain.MetricID]*domain.Metric,
-) error {
-	for i, metric := range metrics {
-		switch metric.Type {
-		case domain.Counter:
-			if existingMetric, exists := existingMetrics[domain.MetricID{
-				ID:   metric.ID,
-				Type: metric.Type,
-			}]; exists {
-				*metric.Delta += *existingMetric.Delta
-			}
-		}
-		metrics[i] = metric
-	}
-	if err := s.saveRepo.Save(ctx, metrics); err != nil {
-		return ErrMetricIsNotUpdated
-	}
-	return nil
 }

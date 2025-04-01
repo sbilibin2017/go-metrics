@@ -2,20 +2,40 @@ package repositories
 
 import (
 	"context"
+	"encoding/json"
 	"go-metrics/internal/domain"
-	"go-metrics/internal/engines"
+	"os"
+	"sync"
 )
 
 type MetricFileSaveRepository struct {
-	e *engines.FileWriterEngine[*domain.Metric]
+	file *os.File
+	mu   sync.Mutex
 }
 
-func NewMetricFileSaveRepository(e *engines.FileWriterEngine[*domain.Metric]) *MetricFileSaveRepository {
+func NewMetricFileSaveRepository(file *os.File) *MetricFileSaveRepository {
 	return &MetricFileSaveRepository{
-		e: e,
+		file: file,
 	}
 }
 
 func (repo *MetricFileSaveRepository) Save(ctx context.Context, metrics []*domain.Metric) error {
-	return repo.e.Write(ctx, metrics)
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+	for _, metric := range metrics {
+		data, err := json.Marshal(metric)
+		if err != nil {
+			return err
+		}
+		_, err = repo.file.Write(append(data, '\n'))
+		if err != nil {
+			return err
+		}
+	}
+	err := repo.file.Sync()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

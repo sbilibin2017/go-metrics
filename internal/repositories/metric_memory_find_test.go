@@ -2,70 +2,62 @@ package repositories_test
 
 import (
 	"context"
+	"go-metrics/internal/domain"
+	"go-metrics/internal/repositories"
 	"testing"
 
-	"go-metrics/internal/domain"
-	"go-metrics/internal/engines"
-	"go-metrics/internal/repositories"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestFindAllMetrics(t *testing.T) {
-	// Initialize the storage and the repository
-	storage := engines.NewMemoryStorage[domain.MetricID, *domain.Metric]()
-	storageGetter := &engines.MemoryGetter[domain.MetricID, *domain.Metric]{MemoryStorage: storage}
-	storageRanger := &engines.MemoryRanger[domain.MetricID, *domain.Metric]{MemoryStorage: storage}
-
-	// Create sample metrics and add them to the storage
-	metric1 := &domain.Metric{ID: "metric1", Type: "counter", Value: nil}
-	metric2 := &domain.Metric{ID: "metric2", Type: "gauge", Value: nil}
-	storageSetter := &engines.MemorySetter[domain.MetricID, *domain.Metric]{MemoryStorage: storage}
-	storageSetter.Set(domain.MetricID{ID: "metric1", Type: "counter"}, metric1)
-	storageSetter.Set(domain.MetricID{ID: "metric2", Type: "gauge"}, metric2)
-
-	// Creating the repository
-	repo := repositories.NewMetricMemoryFindRepository(storageGetter, storageRanger)
-
-	// Call Find with no filters (fetch all metrics)
-	result, err := repo.Find(context.Background(), nil)
-
-	// Assertions
-	assert.NoError(t, err, "Find should not return an error")
-	assert.Len(t, result, 2, "There should be 2 metrics in the result")
-	assert.Equal(t, metric1, result[domain.MetricID{ID: "metric1", Type: "counter"}], "Metric 1 should be in the result")
-	assert.Equal(t, metric2, result[domain.MetricID{ID: "metric2", Type: "gauge"}], "Metric 2 should be in the result")
-}
-
-func TestFindWithFilters(t *testing.T) {
-	// Initialize the storage and the repository
-	storage := engines.NewMemoryStorage[domain.MetricID, *domain.Metric]()
-	storageGetter := &engines.MemoryGetter[domain.MetricID, *domain.Metric]{MemoryStorage: storage}
-	storageRanger := &engines.MemoryRanger[domain.MetricID, *domain.Metric]{MemoryStorage: storage}
-
-	// Create sample metrics and add them to the storage
-	metric1 := &domain.Metric{ID: "metric1", Type: "counter", Value: nil}
-	metric2 := &domain.Metric{ID: "metric2", Type: "gauge", Value: nil}
-	storageSetter := &engines.MemorySetter[domain.MetricID, *domain.Metric]{MemoryStorage: storage}
-	storageSetter.Set(domain.MetricID{ID: "metric1", Type: "counter"}, metric1)
-	storageSetter.Set(domain.MetricID{ID: "metric2", Type: "gauge"}, metric2)
-
-	// Creating the repository
-	repo := repositories.NewMetricMemoryFindRepository(storageGetter, storageRanger)
-
-	// Filters to find specific metrics
-	filters := []*domain.MetricID{
-		{ID: "metric1", Type: "counter"},
+func TestMetricMemoryFindRepository_Find(t *testing.T) {
+	delta1, delta2 := int64(10), int64(5)
+	value1, value2 := 20.5, 30.5
+	data := map[domain.MetricID]*domain.Metric{
+		{ID: "1", Type: "counter"}: {ID: "1", Type: "counter", Delta: &delta1},
+		{ID: "2", Type: "gauge"}:   {ID: "2", Type: "gauge", Value: &value1},
+		{ID: "3", Type: "counter"}: {ID: "3", Type: "counter", Delta: &delta2},
+		{ID: "4", Type: "gauge"}:   {ID: "4", Type: "gauge", Value: &value2},
 	}
+	repo := repositories.NewMetricMemoryFindRepository(data)
 
-	// Call Find with filters
-	result, err := repo.Find(context.Background(), filters)
+	t.Run("Find all metrics", func(t *testing.T) {
+		result, err := repo.Find(context.Background(), nil)
+		require.NoError(t, err)
+		assert.Len(t, result, 4)
+		assert.Equal(t, data, result)
+	})
 
-	// Assertions
-	assert.NoError(t, err, "Find should not return an error")
-	assert.Len(t, result, 1, "There should be 1 metric in the result")
+	t.Run("Find specific metrics", func(t *testing.T) {
+		filters := []*domain.MetricID{
+			{ID: "1", Type: "counter"},
+			{ID: "2", Type: "gauge"},
+		}
+		result, err := repo.Find(context.Background(), filters)
+		require.NoError(t, err)
+		assert.Len(t, result, 2)
+		assert.Equal(t, data[domain.MetricID{ID: "1", Type: "counter"}], result[domain.MetricID{ID: "1", Type: "counter"}])
+		assert.Equal(t, data[domain.MetricID{ID: "2", Type: "gauge"}], result[domain.MetricID{ID: "2", Type: "gauge"}])
+	})
 
-	// Check that the expected metric is returned
-	expectedMetric := &domain.Metric{ID: "metric1", Type: "counter", Value: nil}
-	assert.Equal(t, expectedMetric, result[domain.MetricID{ID: "metric1", Type: "counter"}], "Metric 1 should be in the result")
+	t.Run("Find with non-existing metrics", func(t *testing.T) {
+		filters := []*domain.MetricID{
+			{ID: "100", Type: "counter"},
+			{ID: "200", Type: "gauge"},
+		}
+		result, err := repo.Find(context.Background(), filters)
+		require.NoError(t, err)
+		assert.Empty(t, result)
+	})
+
+	t.Run("Find with nil filters", func(t *testing.T) {
+		filters := []*domain.MetricID{
+			nil,
+			{ID: "2", Type: "gauge"},
+		}
+		result, err := repo.Find(context.Background(), filters)
+		require.NoError(t, err)
+		assert.Len(t, result, 1)
+		assert.Equal(t, data[domain.MetricID{ID: "2", Type: "gauge"}], result[domain.MetricID{ID: "2", Type: "gauge"}])
+	})
 }

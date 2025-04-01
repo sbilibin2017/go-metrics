@@ -19,3 +19,7 @@ func (c *Config) GetFileStoragePath() string {
 func (c *Config) GetDatabaseDSN() string {
 	return c.DatabaseDSN
 }
+
+func (c *Config) GetStoreInterval() int {
+	return c.StoreInterval
+}

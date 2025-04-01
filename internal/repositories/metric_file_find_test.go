@@ -1,10 +1,12 @@
 package repositories_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"go-metrics/internal/domain"
-	"go-metrics/internal/engines"
 	"go-metrics/internal/repositories"
+
 	"os"
 	"testing"
 
@@ -12,41 +14,57 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMetricFileFindRepository_Find(t *testing.T) {
-	tmpFile, err := os.CreateTemp("", "metrics_test.json")
-	require.NoError(t, err)
-	defer os.Remove(tmpFile.Name())
-	fileEngine := engines.NewFileEngine()
-	fsp := &MockFileStoragePathGetter{Path: tmpFile.Name()}
-	require.NoError(t, fileEngine.Open(fsp))
-	defer fileEngine.Close()
-	generatorEngine := engines.NewFileGeneratorEngine[*domain.Metric](fileEngine)
-	metrics := []*domain.Metric{
-		{
-			ID:    "1",
-			Type:  "gauge",
-			Value: float64Ptr(100),
-		},
-		{
-			ID:    "2",
-			Type:  "counter",
-			Value: float64Ptr(200),
-		},
-	}
-	var metricsValues []domain.Metric
+func createTestFileWithMetrics(t *testing.T, metrics []domain.Metric) *os.File {
+	var lines [][]byte
 	for _, metric := range metrics {
-		metricsValues = append(metricsValues, *metric)
+		data, err := json.Marshal(metric)
+		require.NoError(t, err)
+		lines = append(lines, data)
 	}
-	writerEngine := engines.NewFileWriterEngine[domain.Metric](fileEngine)
-	err = writerEngine.Write(context.Background(), metricsValues)
+	fileContent := bytes.Join(lines, []byte("\n"))
+	file, err := os.CreateTemp("", "metrics_test_")
 	require.NoError(t, err)
-	repo := repositories.NewMetricFileFindRepository(generatorEngine)
+	_, err = file.Write(fileContent)
+	require.NoError(t, err)
+	err = file.Sync()
+	require.NoError(t, err)
+	_, err = file.Seek(0, 0)
+	require.NoError(t, err)
+	return file
+}
+
+func TestFindWithoutFilters(t *testing.T) {
+	metrics := []domain.Metric{
+		{ID: "1", Type: "counter", Delta: new(int64), Value: nil},
+		{ID: "2", Type: "gauge", Delta: nil, Value: new(float64)},
+	}
+	file := createTestFileWithMetrics(t, metrics)
+	defer os.Remove(file.Name())
+	repo := repositories.NewMetricFileFindRepository(file)
+	result, err := repo.Find(context.Background(), nil)
+	require.NoError(t, err)
+	assert.Len(t, result, 2)
+	assert.Contains(t, result, domain.MetricID{ID: "1", Type: "counter"})
+	assert.Contains(t, result, domain.MetricID{ID: "2", Type: "gauge"})
+}
+
+func TestFindWithFilters(t *testing.T) {
+	metrics := []domain.Metric{
+		{ID: "1", Type: "counter", Delta: new(int64), Value: nil},
+		{ID: "2", Type: "gauge", Delta: nil, Value: new(float64)},
+		{ID: "3", Type: "counter", Delta: new(int64), Value: nil},
+	}
+	file := createTestFileWithMetrics(t, metrics)
+	defer os.Remove(file.Name())
+	repo := repositories.NewMetricFileFindRepository(file)
 	filters := []*domain.MetricID{
-		{ID: "1", Type: "gauge"},
+		{ID: "1", Type: "counter"},
+		{ID: "2", Type: "gauge"},
 	}
 	result, err := repo.Find(context.Background(), filters)
 	require.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Contains(t, result, domain.MetricID{ID: "1", Type: "gauge"})
-	assert.NotNil(t, result[domain.MetricID{ID: "1", Type: "gauge"}])
+	assert.Len(t, result, 2)
+	assert.Contains(t, result, domain.MetricID{ID: "1", Type: "counter"})
+	assert.Contains(t, result, domain.MetricID{ID: "2", Type: "gauge"})
+	assert.NotContains(t, result, domain.MetricID{ID: "3", Type: "counter"})
 }
