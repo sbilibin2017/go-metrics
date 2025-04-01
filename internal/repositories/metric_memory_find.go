@@ -3,18 +3,21 @@ package repositories
 import (
 	"context"
 	"go-metrics/internal/domain"
+	"go-metrics/internal/engines"
 	"sync"
 )
 
 type MetricMemoryFindRepository struct {
-	data map[domain.MetricID]*domain.Metric
-	mu   sync.Mutex
+	g  *engines.MemoryGetter[domain.MetricID, *domain.Metric]
+	r  *engines.MemoryRanger[domain.MetricID, *domain.Metric]
+	mu sync.Mutex
 }
 
 func NewMetricMemoryFindRepository(
-	data map[domain.MetricID]*domain.Metric,
+	g *engines.MemoryGetter[domain.MetricID, *domain.Metric],
+	r *engines.MemoryRanger[domain.MetricID, *domain.Metric],
 ) *MetricMemoryFindRepository {
-	return &MetricMemoryFindRepository{data: data}
+	return &MetricMemoryFindRepository{g: g, r: r}
 }
 
 func (repo *MetricMemoryFindRepository) Find(
@@ -22,28 +25,22 @@ func (repo *MetricMemoryFindRepository) Find(
 ) (map[domain.MetricID]*domain.Metric, error) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
-	var result map[domain.MetricID]*domain.Metric
+	filterMap := make(map[domain.MetricID]struct{})
+	for _, filter := range filters {
+		if filter != nil {
+			filterMap[domain.MetricID{ID: filter.ID, Type: filter.Type}] = struct{}{}
+		}
+	}
+	result := make(map[domain.MetricID]*domain.Metric)
 	if len(filters) == 0 {
-		result = make(map[domain.MetricID]*domain.Metric)
-		for metricID, metric := range repo.data {
-			result[metricID] = metric
-		}
+		repo.r.Range(func(key domain.MetricID, value *domain.Metric) bool {
+			result[key] = value
+			return true
+		})
 	} else {
-		filterMap := make(map[string]map[string]struct{})
-		for _, filter := range filters {
-			if filter != nil {
-				if _, ok := filterMap[filter.ID]; !ok {
-					filterMap[filter.ID] = make(map[string]struct{})
-				}
-				filterMap[filter.ID][filter.Type] = struct{}{}
-			}
-		}
-		result = make(map[domain.MetricID]*domain.Metric)
-		for metricID, metric := range repo.data {
-			if types, exists := filterMap[metricID.ID]; exists {
-				if _, exists := types[metricID.Type]; exists {
-					result[metricID] = metric
-				}
+		for filterKey := range filterMap {
+			if metric, found := repo.g.Get(filterKey); found {
+				result[filterKey] = metric
 			}
 		}
 	}

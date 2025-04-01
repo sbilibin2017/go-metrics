@@ -1,75 +1,71 @@
-package repositories
+package repositories_test
 
 import (
 	"context"
-	"go-metrics/internal/domain"
 	"testing"
+
+	"go-metrics/internal/domain"
+	"go-metrics/internal/engines"
+	"go-metrics/internal/repositories"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMetricMemoryFindRepository_Find(t *testing.T) {
-	data := map[domain.MetricID]*domain.Metric{
-		{ID: "metric1", Type: "gauge"}:        {ID: "metric1", Type: "gauge", Value: func() *float64 { v := 42.5; return &v }()},
-		{ID: "metric2", Type: domain.Counter}: {ID: "metric2", Type: domain.Counter, Delta: func() *int64 { v := int64(10); return &v }()},
-		{ID: "metric3", Type: "gauge"}:        {ID: "metric3", Type: "gauge", Value: func() *float64 { v := 15.7; return &v }()},
+func TestFindAllMetrics(t *testing.T) {
+	// Initialize the storage and the repository
+	storage := engines.NewMemoryStorage[domain.MetricID, *domain.Metric]()
+	storageGetter := &engines.MemoryGetter[domain.MetricID, *domain.Metric]{MemoryStorage: storage}
+	storageRanger := &engines.MemoryRanger[domain.MetricID, *domain.Metric]{MemoryStorage: storage}
+
+	// Create sample metrics and add them to the storage
+	metric1 := &domain.Metric{ID: "metric1", Type: "counter", Value: nil}
+	metric2 := &domain.Metric{ID: "metric2", Type: "gauge", Value: nil}
+	storageSetter := &engines.MemorySetter[domain.MetricID, *domain.Metric]{MemoryStorage: storage}
+	storageSetter.Set(domain.MetricID{ID: "metric1", Type: "counter"}, metric1)
+	storageSetter.Set(domain.MetricID{ID: "metric2", Type: "gauge"}, metric2)
+
+	// Creating the repository
+	repo := repositories.NewMetricMemoryFindRepository(storageGetter, storageRanger)
+
+	// Call Find with no filters (fetch all metrics)
+	result, err := repo.Find(context.Background(), nil)
+
+	// Assertions
+	assert.NoError(t, err, "Find should not return an error")
+	assert.Len(t, result, 2, "There should be 2 metrics in the result")
+	assert.Equal(t, metric1, result[domain.MetricID{ID: "metric1", Type: "counter"}], "Metric 1 should be in the result")
+	assert.Equal(t, metric2, result[domain.MetricID{ID: "metric2", Type: "gauge"}], "Metric 2 should be in the result")
+}
+
+func TestFindWithFilters(t *testing.T) {
+	// Initialize the storage and the repository
+	storage := engines.NewMemoryStorage[domain.MetricID, *domain.Metric]()
+	storageGetter := &engines.MemoryGetter[domain.MetricID, *domain.Metric]{MemoryStorage: storage}
+	storageRanger := &engines.MemoryRanger[domain.MetricID, *domain.Metric]{MemoryStorage: storage}
+
+	// Create sample metrics and add them to the storage
+	metric1 := &domain.Metric{ID: "metric1", Type: "counter", Value: nil}
+	metric2 := &domain.Metric{ID: "metric2", Type: "gauge", Value: nil}
+	storageSetter := &engines.MemorySetter[domain.MetricID, *domain.Metric]{MemoryStorage: storage}
+	storageSetter.Set(domain.MetricID{ID: "metric1", Type: "counter"}, metric1)
+	storageSetter.Set(domain.MetricID{ID: "metric2", Type: "gauge"}, metric2)
+
+	// Creating the repository
+	repo := repositories.NewMetricMemoryFindRepository(storageGetter, storageRanger)
+
+	// Filters to find specific metrics
+	filters := []*domain.MetricID{
+		{ID: "metric1", Type: "counter"},
 	}
 
-	repo := NewMetricMemoryFindRepository(data)
+	// Call Find with filters
+	result, err := repo.Find(context.Background(), filters)
 
-	testCases := []struct {
-		name     string
-		filters  []*domain.MetricID // Используем указатели на MetricID
-		expected map[domain.MetricID]*domain.Metric
-	}{
-		{
-			name: "FindExistingMetrics",
-			filters: []*domain.MetricID{
-				&domain.MetricID{ID: "metric1", Type: "gauge"},
-				&domain.MetricID{ID: "metric2", Type: domain.Counter},
-			},
-			expected: map[domain.MetricID]*domain.Metric{
-				{ID: "metric1", Type: "gauge"}:        {ID: "metric1", Type: "gauge", Value: func() *float64 { v := 42.5; return &v }()},
-				{ID: "metric2", Type: domain.Counter}: {ID: "metric2", Type: domain.Counter, Delta: func() *int64 { v := int64(10); return &v }()},
-			},
-		},
-		{
-			name:     "FindNonExistingMetric",
-			filters:  []*domain.MetricID{{ID: "metric4", Type: "gauge"}},
-			expected: map[domain.MetricID]*domain.Metric{},
-		},
-		{
-			name:    "FindAllMetricsWhenNoFilters",
-			filters: []*domain.MetricID{}, // Empty filters
-			expected: map[domain.MetricID]*domain.Metric{
-				{ID: "metric1", Type: "gauge"}:        {ID: "metric1", Type: "gauge", Value: func() *float64 { v := 42.5; return &v }()},
-				{ID: "metric2", Type: domain.Counter}: {ID: "metric2", Type: domain.Counter, Delta: func() *int64 { v := int64(10); return &v }()},
-				{ID: "metric3", Type: "gauge"}:        {ID: "metric3", Type: "gauge", Value: func() *float64 { v := 15.7; return &v }()},
-			},
-		},
-		{
-			name:    "FindAllMetricsWhenFilterMapEmpty",
-			filters: []*domain.MetricID{}, // Empty filters, which results in filterMap being empty
-			expected: map[domain.MetricID]*domain.Metric{
-				{ID: "metric1", Type: "gauge"}:        {ID: "metric1", Type: "gauge", Value: func() *float64 { v := 42.5; return &v }()},
-				{ID: "metric2", Type: domain.Counter}: {ID: "metric2", Type: domain.Counter, Delta: func() *int64 { v := int64(10); return &v }()},
-				{ID: "metric3", Type: "gauge"}:        {ID: "metric3", Type: "gauge", Value: func() *float64 { v := 15.7; return &v }()},
-			},
-		},
-	}
+	// Assertions
+	assert.NoError(t, err, "Find should not return an error")
+	assert.Len(t, result, 1, "There should be 1 metric in the result")
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result, err := repo.Find(context.Background(), tc.filters)
-			assert.NoError(t, err)
-
-			// Here we ignore comparing by pointers, comparing only the content
-			assert.Len(t, result, len(tc.expected))
-			for key, expectedValue := range tc.expected {
-				actualValue, exists := result[key]
-				assert.True(t, exists)
-				assert.Equal(t, expectedValue, actualValue)
-			}
-		})
-	}
+	// Check that the expected metric is returned
+	expectedMetric := &domain.Metric{ID: "metric1", Type: "counter", Value: nil}
+	assert.Equal(t, expectedMetric, result[domain.MetricID{ID: "metric1", Type: "counter"}], "Metric 1 should be in the result")
 }

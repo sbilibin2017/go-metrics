@@ -2,12 +2,11 @@ package app
 
 import (
 	"flag"
-	"go-metrics/internal/configs"
 	"os"
 	"strconv"
 )
 
-func ParseFlags() *configs.AgentConfig {
+func ParseFlags() *Config {
 	addr := "localhost:8080"
 	reportInterval := 10
 	pollInterval := 2
@@ -28,7 +27,7 @@ func ParseFlags() *configs.AgentConfig {
 	flag.IntVar(&reportInterval, "r", reportInterval, "Частота отправки метрик на сервер в секундах")
 	flag.IntVar(&pollInterval, "p", pollInterval, "Частота опроса метрик из пакета runtime в секундах")
 	flag.Parse()
-	return &configs.AgentConfig{
+	return &Config{
 		Address:        addr,
 		PollInterval:   pollInterval,
 		ReportInterval: reportInterval,

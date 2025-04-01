@@ -3,19 +3,20 @@ package repositories
 import (
 	"context"
 	"go-metrics/internal/domain"
+	"go-metrics/internal/engines"
 	"sync"
 )
 
 type MetricMemorySaveRepository struct {
-	data map[domain.MetricID]*domain.Metric
-	mu   sync.Mutex
+	e  *engines.MemorySetter[domain.MetricID, *domain.Metric]
+	mu sync.Mutex
 }
 
 func NewMetricMemorySaveRepository(
-	data map[domain.MetricID]*domain.Metric,
+	e *engines.MemorySetter[domain.MetricID, *domain.Metric],
 ) *MetricMemorySaveRepository {
 	return &MetricMemorySaveRepository{
-		data: data,
+		e: e,
 	}
 }
 
@@ -25,7 +26,7 @@ func (repo *MetricMemorySaveRepository) Save(
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	for _, metric := range metrics {
-		repo.data[domain.MetricID{ID: metric.ID, Type: metric.Type}] = metric
+		repo.e.Set(domain.MetricID{ID: metric.ID, Type: metric.Type}, metric)
 	}
 	return nil
 }

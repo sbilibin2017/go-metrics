@@ -5,8 +5,8 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
-	"go-metrics/internal/configs"
 	"go-metrics/internal/domain"
+	"go-metrics/internal/logger"
 	"math/rand"
 	"runtime"
 	"strings"
@@ -16,11 +16,11 @@ import (
 )
 
 type MetricAgent struct {
-	config *configs.AgentConfig
+	config *Config
 	client *resty.Client
 }
 
-func NewMetricAgent(config *configs.AgentConfig) *MetricAgent {
+func NewMetricAgent(config *Config) *MetricAgent {
 	return &MetricAgent{
 		config: config,
 		client: resty.New(),
@@ -28,20 +28,27 @@ func NewMetricAgent(config *configs.AgentConfig) *MetricAgent {
 }
 
 func (ma *MetricAgent) Start(ctx context.Context) error {
+	logger.Init()
 	tickerPoll := time.NewTicker(time.Duration(ma.config.PollInterval) * time.Second)
 	tickerReport := time.NewTicker(time.Duration(ma.config.ReportInterval) * time.Second)
 	defer tickerPoll.Stop()
 	defer tickerReport.Stop()
-
 	var metrics []domain.Metric
 	for {
 		select {
 		case <-tickerPoll.C:
 			metrics = ma.collectMetrics(metrics)
+			logger.Logger.Infow("Metrics collected", "metrics_count", len(metrics))
 		case <-tickerReport.C:
-			ma.sendMetrics(ctx, metrics)
+			err := ma.sendMetrics(ctx, metrics)
+			if err != nil {
+				logger.Logger.Errorw("Failed to send metrics", "error", err)
+			} else {
+				logger.Logger.Infow("Metrics sent successfully", "metrics_count", len(metrics))
+			}
 			metrics = nil
 		case <-ctx.Done():
+			logger.Logger.Info("Shutting down metric agent")
 			return nil
 		}
 	}

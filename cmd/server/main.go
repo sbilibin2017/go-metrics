@@ -10,10 +10,12 @@ import (
 
 func main() {
 	config := app.ParseFlags()
-	srv := app.NewServer(config)
+	container := app.NewContainer(config)
+	worker := app.NewWorker(config, container)
+	server := app.NewServer(config, container, worker)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	err := srv.Start(ctx)
+	err := server.Start(ctx)
 	if err != nil {
 		os.Exit(1)
 	}
