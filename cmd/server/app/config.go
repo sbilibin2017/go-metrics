@@ -15,3 +15,7 @@ func (c *Config) GetAddress() string {
 func (c *Config) GetFileStoragePath() string {
 	return c.FileStoragePath
 }
+
+func (c *Config) GetDatabaseDSN() string {
+	return c.DatabaseDSN
+}

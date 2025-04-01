@@ -28,6 +28,7 @@ func ParseFlags() *Config {
 	storeInterval := DefaultStoreInterval
 	fileStoragePath := DefaultFileStoragePath
 	restore := DefaultRestore
+	databaseDSN := ""
 
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
 		serverAddr = envAddr
@@ -46,14 +47,20 @@ func ParseFlags() *Config {
 		}
 	}
 
+	if envDatabaseDSN := os.Getenv("DATABASE_DSN"); envDatabaseDSN != "" {
+		databaseDSN = envDatabaseDSN
+	}
+
 	flag.StringVar(&serverAddr, FlagAddress, serverAddr, DescriptionAddress)
 	flag.IntVar(&storeInterval, FlagStoreInterval, storeInterval, DescriptionStoreInterval)
 	flag.StringVar(&fileStoragePath, FlagFileStoragePath, fileStoragePath, DescriptionFileStoragePath)
 	flag.BoolVar(&restore, FlagRestore, restore, DescriptionRestore)
+	flag.StringVar(&databaseDSN, "d", databaseDSN, "database dsn")
 	flag.Parse()
 
 	return &Config{
 		Address:         serverAddr,
+		DatabaseDSN:     databaseDSN,
 		StoreInterval:   storeInterval,
 		FileStoragePath: fileStoragePath,
 		Restore:         restore,
