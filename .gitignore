@@ -27,4 +27,5 @@ vendor/
 go.mod
 go.sum
 
-.http
+*.http
+*.json

@@ -26,7 +26,7 @@ func TestMetricFileSaveRepository_Save(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 	fileEngine := engines.NewFileEngine()
 	fsp := &MockFileStoragePathGetter{Path: tmpFile.Name()}
-	require.NoError(t, fileEngine.Open(fsp))
+	require.NoError(t, fileEngine.Open(context.Background(), fsp))
 	defer fileEngine.File.Close()
 	writerEngine := engines.NewFileWriterEngine[*domain.Metric](fileEngine)
 	repo := repositories.NewMetricFileSaveRepository(writerEngine)

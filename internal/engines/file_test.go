@@ -28,7 +28,7 @@ func TestFileEngine_Open(t *testing.T) {
 		t.Fatalf("expected file %s to not exist before opening", filePath)
 	}
 
-	if err := engine.Open(fsp); err != nil {
+	if err := engine.Open(context.Background(), fsp); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -47,7 +47,7 @@ func TestFileWriterEngine_Write(t *testing.T) {
 	fsp := &MockFileStoragePathGetter{Path: tmpFile.Name()}
 
 	fileEngine := &engines.FileEngine{}
-	require.NoError(t, fileEngine.Open(fsp))
+	require.NoError(t, fileEngine.Open(context.Background(), fsp))
 	defer fileEngine.File.Close()
 
 	writerEngine := &engines.FileWriterEngine[map[string]interface{}]{FileEngine: fileEngine}
@@ -69,7 +69,7 @@ func TestFileGeneratorEngine_Generate(t *testing.T) {
 	fsp := &MockFileStoragePathGetter{Path: tmpFile.Name()}
 
 	fileEngine := &engines.FileEngine{}
-	require.NoError(t, fileEngine.Open(fsp))
+	require.NoError(t, fileEngine.Open(context.Background(), fsp))
 	defer fileEngine.File.Close()
 
 	writerEngine := &engines.FileWriterEngine[map[string]interface{}]{FileEngine: fileEngine}

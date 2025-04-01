@@ -11,13 +11,16 @@ const (
 	FlagStoreInterval   = "i"
 	FlagFileStoragePath = "f"
 	FlagRestore         = "r"
+	FlagDatabaseDSN     = "d"
 
 	DescriptionAddress         = "Адрес эндпоинта HTTP-сервера"
 	DescriptionStoreInterval   = "Интервал времени в секундах для сохранения показаний на диск"
 	DescriptionFileStoragePath = "Путь до файла для хранения показаний"
 	DescriptionRestore         = "Загружать ли ранее сохранённые значения при старте сервера"
+	DescriptionDatabaseDSN     = "Строка подключения к базе данных"
 
 	DefaultAddress         = "localhost:8080"
+	DefaultDatabaseDSN     = ""
 	DefaultStoreInterval   = 300
 	DefaultFileStoragePath = "data/metrics.json"
 	DefaultRestore         = false
@@ -28,6 +31,7 @@ func ParseFlags() *Config {
 	storeInterval := DefaultStoreInterval
 	fileStoragePath := DefaultFileStoragePath
 	restore := DefaultRestore
+	databaseDSN := DefaultDatabaseDSN
 
 	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
 		serverAddr = envAddr
@@ -45,15 +49,20 @@ func ParseFlags() *Config {
 			restore = val
 		}
 	}
+	if envDSN := os.Getenv("DATABASE_DSN"); envDSN != "" {
+		databaseDSN = envDSN
+	}
 
 	flag.StringVar(&serverAddr, FlagAddress, serverAddr, DescriptionAddress)
 	flag.IntVar(&storeInterval, FlagStoreInterval, storeInterval, DescriptionStoreInterval)
 	flag.StringVar(&fileStoragePath, FlagFileStoragePath, fileStoragePath, DescriptionFileStoragePath)
 	flag.BoolVar(&restore, FlagRestore, restore, DescriptionRestore)
+	flag.StringVar(&databaseDSN, FlagDatabaseDSN, databaseDSN, DescriptionDatabaseDSN)
 	flag.Parse()
 
 	return &Config{
 		Address:         serverAddr,
+		DatabaseDSN:     databaseDSN,
 		StoreInterval:   storeInterval,
 		FileStoragePath: fileStoragePath,
 		Restore:         restore,
