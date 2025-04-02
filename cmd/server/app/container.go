@@ -34,6 +34,7 @@ type Container struct {
 	MetricListHTMLUsecase    *usecases.MetricListHTMLUsecase
 	MetricUpdateBodyUsecase  *usecases.MetricUpdateBodyUsecase
 	MetricGetByIDBodyUsecase *usecases.MetricGetByIDBodyUsecase
+	MetricUpdatesBodyUsecase *usecases.MetricUpdatesBodyUsecase
 }
 
 func NewContainer(config *Config) (*Container, error) {
@@ -113,6 +114,7 @@ func NewContainer(config *Config) (*Container, error) {
 	container.MetricGetByIDPathUsecase = usecases.NewMetricGetByIDPathUsecase(container.MetricGetByIDService)
 	container.MetricGetByIDBodyUsecase = usecases.NewMetricGetByIDBodyUsecase(container.MetricGetByIDService)
 	container.MetricListHTMLUsecase = usecases.NewMetricListHTMLUsecase(container.MetricListService)
+	container.MetricUpdatesBodyUsecase = usecases.NewMetricUpdatesBodyUsecase(container.MetricUpdateService)
 
 	return container, nil
 }

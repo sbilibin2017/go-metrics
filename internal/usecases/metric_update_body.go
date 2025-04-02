@@ -12,7 +12,7 @@ type MetricUpdateBodyService interface {
 }
 
 type MetricUpdateBodyUsecase struct {
-	svc MetricUpdatePathService
+	svc MetricUpdateBodyService
 }
 
 func NewMetricUpdateBodyUsecase(

@@ -13,6 +13,7 @@ func NewMetricRouter(
 	h3 http.HandlerFunc,
 	h4 http.HandlerFunc,
 	h5 http.HandlerFunc,
+	h6 http.HandlerFunc,
 ) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middlewares.LoggingMiddleware)
@@ -22,6 +23,6 @@ func NewMetricRouter(
 	r.Get("/", h3)
 	r.Post("/update/", h4)
 	r.Post("/value/", h5)
+	r.Post("/updates/", h6)
 	return r
-
 }

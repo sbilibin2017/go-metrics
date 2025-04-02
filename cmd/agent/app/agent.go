@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"fmt"
 	"go-metrics/internal/domain"
 	"go-metrics/internal/logger"
 	"math/rand"
@@ -32,6 +33,7 @@ func (ma *MetricAgent) Start(ctx context.Context) error {
 	tickerReport := time.NewTicker(time.Duration(ma.config.ReportInterval) * time.Second)
 	defer tickerPoll.Stop()
 	defer tickerReport.Stop()
+
 	var metrics []domain.Metric
 	for {
 		select {
@@ -39,13 +41,17 @@ func (ma *MetricAgent) Start(ctx context.Context) error {
 			metrics = ma.collectMetrics(metrics)
 			logger.Logger.Infow("Metrics collected", "metrics_count", len(metrics))
 		case <-tickerReport.C:
-			err := ma.sendMetrics(ctx, metrics)
-			if err != nil {
-				logger.Logger.Errorw("Failed to send metrics", "error", err)
-			} else {
-				logger.Logger.Infow("Metrics sent successfully", "metrics_count", len(metrics))
+			if len(metrics) > 0 {
+				// Send the metrics in batches
+				err := ma.sendMetrics(ctx, metrics)
+				if err != nil {
+					logger.Logger.Errorw("Failed to send metrics", "error", err)
+				} else {
+					logger.Logger.Infow("Metrics sent successfully", "metrics_count", len(metrics))
+				}
+				// Clear the metrics after sending
+				metrics = nil
 			}
-			metrics = nil
 		case <-ctx.Done():
 			logger.Logger.Info("Shutting down metric agent")
 			return nil
@@ -113,35 +119,54 @@ func (ma *MetricAgent) sendMetrics(ctx context.Context, metrics []domain.Metric)
 		}
 		return address
 	}
+
 	address := normalizeAddress(ma.config.Address)
-	for _, metric := range metrics {
-		url := address + "/update/"
+
+	// Create batches of metrics (for example, batches of 100 metrics each)
+	batchSize := 100
+	for i := 0; i < len(metrics); i += batchSize {
+		end := i + batchSize
+		if end > len(metrics) {
+			end = len(metrics)
+		}
+
+		batch := metrics[i:end]
+		url := address + "/updates/"
+
+		// Marshal the batch of metrics
 		var buf bytes.Buffer
 		gzipWriter := gzip.NewWriter(&buf)
-		body, err := json.Marshal(metric)
+		body, err := json.Marshal(batch)
 		if err != nil {
-			continue
+			return err
 		}
+
 		_, err = gzipWriter.Write(body)
 		if err != nil {
-			continue
+			return err
 		}
+
 		err = gzipWriter.Close()
 		if err != nil {
-			continue
+			return err
 		}
+
+		// Send the batch
 		resp, err := ma.client.R().
 			SetContext(ctx).
 			SetHeader("Content-Type", "application/json").
 			SetHeader("Content-Encoding", "gzip").
 			SetBody(buf.Bytes()).
 			Post(url)
+
 		if err != nil {
-			continue
+			return err
 		}
+
 		if resp.StatusCode() != 200 {
-			continue
+			return fmt.Errorf("unexpected status code: %d", resp.StatusCode())
 		}
 	}
+
 	return nil
 }

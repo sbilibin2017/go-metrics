@@ -28,6 +28,7 @@ func NewServer(config *Config, container *Container, worker *Worker) *Server {
 	metricListHTMLHandler := handlers.MetricListHTMLHandler(container.MetricListHTMLUsecase)
 	metricUpdateBodyHandler := handlers.MetricUpdateBodyHandler(container.MetricUpdateBodyUsecase)
 	metricGetByIDBodyHandler := handlers.MetricGetByIDBodyHandler(container.MetricGetByIDBodyUsecase)
+	metricUpdatesBodyHandler := handlers.MetricUpdatesBodyHandler(container.MetricUpdatesBodyUsecase)
 
 	metricRouter := routers.NewMetricRouter(
 		metricUpdateHandler,
@@ -35,6 +36,7 @@ func NewServer(config *Config, container *Container, worker *Worker) *Server {
 		metricListHTMLHandler,
 		metricUpdateBodyHandler,
 		metricGetByIDBodyHandler,
+		metricUpdatesBodyHandler,
 	)
 	metricRouter.Get("/ping", PingDBHandler(container.DB))
 
