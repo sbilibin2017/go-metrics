@@ -9,13 +9,15 @@ import (
 )
 
 type MetricFileSaveRepository struct {
-	file *os.File
-	mu   sync.Mutex
+	file    *os.File
+	encoder *json.Encoder
+	mu      sync.Mutex
 }
 
 func NewMetricFileSaveRepository(file *os.File) *MetricFileSaveRepository {
 	return &MetricFileSaveRepository{
-		file: file,
+		file:    file,
+		encoder: json.NewEncoder(file),
 	}
 }
 
@@ -23,19 +25,9 @@ func (repo *MetricFileSaveRepository) Save(ctx context.Context, metrics []*domai
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	for _, metric := range metrics {
-		data, err := json.Marshal(metric)
-		if err != nil {
-			return err
-		}
-		_, err = repo.file.Write(append(data, '\n'))
-		if err != nil {
+		if err := repo.encoder.Encode(metric); err != nil {
 			return err
 		}
 	}
-	err := repo.file.Sync()
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
