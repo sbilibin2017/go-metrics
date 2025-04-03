@@ -109,19 +109,12 @@ func (ma *MetricAgent) collectCounterMetrics(metrics []domain.Metric) []domain.M
 }
 
 func (ma *MetricAgent) sendMetrics(ctx context.Context, metrics []domain.Metric) error {
-	normalizeAddress := func(address string) string {
-		if !strings.HasPrefix(address, "http://") && !strings.HasPrefix(address, "https://") {
-			return "http://" + address
-		}
-		return address
-	}
-	address := normalizeAddress(ma.config.Address)
-	url := address + "/updates/"
+	url := ma.getURL(ma.config.Address)
 	body, err := json.Marshal(metrics)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metrics: %w", err)
 	}
-	compressedBody, err := compress(body)
+	compressedBody, err := ma.compress(body)
 	if err != nil {
 		return fmt.Errorf("failed to compress metrics: %w", err)
 	}
@@ -158,7 +151,14 @@ func (ma *MetricAgent) sendMetrics(ctx context.Context, metrics []domain.Metric)
 	return fmt.Errorf("failed to send metrics after multiple attempts")
 }
 
-func compress(data []byte) ([]byte, error) {
+func (ma *MetricAgent) getURL(address string) string {
+	if !strings.HasPrefix(address, "http://") && !strings.HasPrefix(address, "https://") {
+		address = "http://" + address
+	}
+	return address + "/updates/"
+}
+
+func (ma *MetricAgent) compress(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	gzipWriter := gzip.NewWriter(&buf)
 	_, err := gzipWriter.Write(data)
