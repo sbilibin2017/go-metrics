@@ -2,8 +2,9 @@ package services
 
 import (
 	"context"
-	"errors"
+
 	"go-metrics/internal/domain"
+	"go-metrics/internal/errors"
 )
 
 type MetricGetByIDFindRepository interface {
@@ -11,32 +12,27 @@ type MetricGetByIDFindRepository interface {
 }
 
 type MetricGetByIDService struct {
-	findRepo MetricGetByIDFindRepository
+	f MetricGetByIDFindRepository
 }
 
 func NewMetricGetByIDService(
-	findRepo MetricGetByIDFindRepository,
+	f MetricGetByIDFindRepository,
 ) *MetricGetByIDService {
 	return &MetricGetByIDService{
-		findRepo: findRepo,
+		f: f,
 	}
 }
-
-var (
-	ErrMetricNotFound        = errors.New("metric not found")
-	ErrMetricGetByIDInternal = errors.New("internal error")
-)
 
 func (s *MetricGetByIDService) GetByID(
 	ctx context.Context, id *domain.MetricID,
 ) (*domain.Metric, error) {
-	metrics, err := s.findRepo.Find(ctx, []*domain.MetricID{id})
+	metrics, err := s.f.Find(ctx, []*domain.MetricID{id})
 	if err != nil {
-		return nil, ErrMetricGetByIDInternal
+		return nil, errors.ErrMetricGetByIDInternal
 	}
 	metric, found := metrics[*id]
 	if !found {
-		return nil, ErrMetricNotFound
+		return nil, errors.ErrMetricNotFound
 	}
 	return metric, nil
 }

@@ -1,7 +1,7 @@
 package middlewares
 
 import (
-	"go-metrics/internal/logger"
+	"go-metrics/pkg/log"
 	"net/http"
 	"time"
 )
@@ -12,12 +12,12 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		ww := &ResponseWriter{ResponseWriter: w}
 		next.ServeHTTP(ww, r)
 		duration := time.Since(startTime)
-		logger.Logger.Infow("Request",
+		log.Info("Request",
 			"uri", r.RequestURI,
 			"method", r.Method,
 			"duration", duration.Seconds(),
 		)
-		logger.Logger.Infow("Response",
+		log.Info("Response",
 			"status", ww.statusCode,
 			"response_size", ww.responseSize,
 		)

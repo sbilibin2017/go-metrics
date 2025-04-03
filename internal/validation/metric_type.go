@@ -1,19 +1,14 @@
 package validation
 
 import (
-	"errors"
 	"go-metrics/internal/domain"
-	"strings"
+	"go-metrics/internal/errors"
 )
 
-var (
-	ErrInvalidType = errors.New("invalid Type: must be 'gauge' or 'counter'")
-)
-
-func ValidateType(Type string) error {
-	Type = strings.ToLower(Type)
-	if Type != domain.Gauge && Type != domain.Counter {
-		return ErrInvalidType
+func ValidateMetricType(metricType string) error {
+	mtype := domain.MetricType(metricType)
+	if mtype != domain.Gauge && mtype != domain.Counter {
+		return errors.ErrInvalidMetricType
 	}
 	return nil
 }

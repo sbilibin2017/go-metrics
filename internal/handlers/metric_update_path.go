@@ -2,37 +2,30 @@ package handlers
 
 import (
 	"context"
-	"go-metrics/internal/handlers/utils"
-	"go-metrics/internal/requests"
-	"go-metrics/internal/responses"
+	"go-metrics/internal/errors"
+	"go-metrics/internal/usecases"
 	"net/http"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 )
 
 type MetricUpdatePathUsecase interface {
-	Execute(
-		ctx context.Context,
-		req *requests.MetricUpdatePathRequest,
-	) (*responses.MetricUpdatePathResponse, error)
+	Execute(ctx context.Context, req *usecases.MetricUpdatePathRequest) (*usecases.MetricUpdatePathResponse, error)
 }
 
 func MetricUpdatePathHandler(uc MetricUpdatePathUsecase) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		req := parseMetricUpdateURLParams(r)
-		resp, err := uc.Execute(r.Context(), req)
+		var req usecases.MetricUpdatePathRequest
+		req.Type = chi.URLParam(r, "type")
+		req.Name = chi.URLParam(r, "name")
+		req.Value = chi.URLParam(r, "value")
+		resp, err := uc.Execute(r.Context(), &req)
 		if err != nil {
-			handleMetricError(w, err)
+			errors.MakeMetricErrorResponse(w, err)
 			return
 		}
-		utils.SendTextResponse(w, http.StatusOK, resp.ToResponse())
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(string(*resp)))
 	}
-}
-
-func parseMetricUpdateURLParams(r *http.Request) *requests.MetricUpdatePathRequest {
-	return requests.NewMetricUpdatePathRequest(
-		chi.URLParam(r, "type"),
-		chi.URLParam(r, "name"),
-		chi.URLParam(r, "value"),
-	)
 }
