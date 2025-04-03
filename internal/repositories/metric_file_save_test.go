@@ -1,50 +1,35 @@
-package repositories_test
+package repositories
 
 import (
 	"context"
 	"encoding/json"
 	"go-metrics/internal/domain"
-	"go-metrics/internal/repositories"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestMetricFileSaveRepository_Save(t *testing.T) {
-	tempFile, err := os.CreateTemp("", "metrics_test_*.json")
-	require.NoError(t, err)
-	defer os.Remove(tempFile.Name())
-
-	repo := repositories.NewMetricFileSaveRepository(tempFile)
-	metrics := []*domain.Metric{
-		{ID: "metric1", Type: "gauge", Value: float64Ptr(12.34)},
-		{ID: "metric2", Type: "counter", Delta: int64Ptr(42)},
-	}
-
-	err = repo.Save(context.Background(), metrics)
+func TestMetricFileSaveRepository_Save_Success(t *testing.T) {
+	metric1 := &domain.Metric{MetricID: domain.MetricID{ID: "1", Type: domain.Counter}}
+	metric2 := &domain.Metric{MetricID: domain.MetricID{ID: "2", Type: domain.Gauge}}
+	tmpFile, err := os.CreateTemp("", "metrics_test_*.json")
 	assert.NoError(t, err)
-
-	content, err := os.ReadFile(tempFile.Name())
-	require.NoError(t, err)
-
-	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
-	assert.Len(t, lines, len(metrics))
-
-	for i, line := range lines {
-		var metric domain.Metric
-		err := json.Unmarshal([]byte(line), &metric)
-		assert.NoError(t, err)
-		assert.Equal(t, metrics[i], &metric)
+	defer os.Remove(tmpFile.Name())
+	repo := NewMetricFileSaveRepository(tmpFile)
+	err = repo.Save(context.Background(), []*domain.Metric{metric1, metric2})
+	assert.NoError(t, err)
+	tmpFile.Seek(0, 0)
+	var savedMetrics []*domain.Metric
+	decoder := json.NewDecoder(tmpFile)
+	for {
+		var m domain.Metric
+		if err := decoder.Decode(&m); err != nil {
+			break
+		}
+		savedMetrics = append(savedMetrics, &m)
 	}
-}
-
-func float64Ptr(f float64) *float64 {
-	return &f
-}
-
-func int64Ptr(i int64) *int64 {
-	return &i
+	assert.Len(t, savedMetrics, 2)
+	assert.Equal(t, metric1, savedMetrics[0])
+	assert.Equal(t, metric2, savedMetrics[1])
 }

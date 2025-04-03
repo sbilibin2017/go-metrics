@@ -2,29 +2,34 @@ package handlers
 
 import (
 	"context"
-	"go-metrics/internal/handlers/utils"
-	"go-metrics/internal/requests"
-	"go-metrics/internal/responses"
+	"encoding/json"
+	"go-metrics/internal/errors"
+	"go-metrics/internal/usecases"
 	"net/http"
 )
 
 type MetricGetByIDBodyUsecase interface {
-	Execute(ctx context.Context, req *requests.MetricGetByIDBodyRequest) (*responses.MetricGetByIDBodyResponse, error)
+	Execute(ctx context.Context, req *usecases.MetricGetByIDBodyRequest) (*usecases.MetricGetByIDBodyResponse, error)
 }
 
 func MetricGetByIDBodyHandler(uc MetricGetByIDBodyUsecase) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req requests.MetricGetByIDBodyRequest
-		err := utils.ParseJSONRequest(r, &req)
-		if err != nil {
-			http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		var req usecases.MetricGetByIDBodyRequest
+		decoder := json.NewDecoder(r.Body)
+		if err := decoder.Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 			return
 		}
 		resp, err := uc.Execute(r.Context(), &req)
 		if err != nil {
-			handleMetricError(w, err)
+			errors.MakeMetricErrorResponse(w, err)
 			return
 		}
-		utils.SendJSONResponse(w, http.StatusOK, resp)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			errors.MakeMetricErrorResponse(w, err)
+			return
+		}
 	}
 }

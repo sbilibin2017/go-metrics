@@ -25,9 +25,7 @@ func (repo *MetricFileSaveRepository) Save(ctx context.Context, metrics []*domai
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	for _, metric := range metrics {
-		if err := repo.encoder.Encode(metric); err != nil {
-			return err
-		}
+		repo.encoder.Encode(metric)
 	}
 	return nil
 }

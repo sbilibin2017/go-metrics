@@ -1,8 +1,12 @@
-package services
+package services_test
 
 import (
 	"context"
+	"database/sql"
+	e "errors"
 	"go-metrics/internal/domain"
+	"go-metrics/internal/errors"
+	"go-metrics/internal/services"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -10,90 +14,91 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMetricUpdateService_Update(t *testing.T) {
+func TestUpdate_SuccessfulUpdate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
-	mockSaveRepo := NewMockMetricUpdateSaveBatchRepository(ctrl)
-	mockFindRepo := NewMockMetricUpdateFindBatchRepository(ctrl)
-	mockUnitOfWork := NewMockUnitOfWork(ctrl)
-	service := NewMetricUpdateService(mockSaveRepo, mockFindRepo, mockUnitOfWork)
-
-	metric := &domain.Metric{
-		ID:    "metric1",
-		Type:  domain.Counter,
-		Delta: new(int64),
+	mockSaveRepo := services.NewMockMetricUpdateSaveRepository(ctrl)
+	mockFindRepo := services.NewMockMetricUpdateFindRepository(ctrl)
+	mockUnitOfWork := services.NewMockUnitOfWork(ctrl)
+	metrics := []*domain.Metric{
+		{MetricID: domain.MetricID{ID: "1", Type: domain.Counter}, Delta: new(int64)},
 	}
-	*metric.Delta = 5
-
-	existingMetrics := map[domain.MetricID]*domain.Metric{
-		{ID: "metric1", Type: domain.Counter}: {
-			ID:    "metric1",
-			Type:  domain.Counter,
-			Delta: new(int64),
-		},
+	expectedMetrics := []*domain.Metric{
+		{MetricID: domain.MetricID{ID: "1", Type: domain.Counter}, Delta: new(int64)},
 	}
-	*existingMetrics[domain.MetricID{ID: "metric1", Type: domain.Counter}].Delta = 10
+	mockUnitOfWork.EXPECT().Do(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, operation func(tx *sql.Tx) error) error {
+		return operation(nil)
+	}).Times(1)
+	mockFindRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(map[domain.MetricID]*domain.Metric{
+		{ID: "1", Type: domain.Counter}: {MetricID: domain.MetricID{ID: "1", Type: domain.Counter}, Delta: new(int64)},
+	}, nil).Times(1)
+	mockSaveRepo.EXPECT().Save(gomock.Any(), metrics).Return(nil).Times(1)
+	service := services.NewMetricUpdateService(mockSaveRepo, mockFindRepo, mockUnitOfWork)
+	result, err := service.Update(context.Background(), metrics)
+	require.NoError(t, err)
+	assert.Equal(t, expectedMetrics, result)
+}
 
-	tests := []struct {
-		name          string
-		mockSetup     func()
-		metrics       []*domain.Metric
-		expectedError error
-		expectedDelta int64
-	}{
-		{
-			name: "should update metrics successfully",
-			mockSetup: func() {
-				mockUnitOfWork.EXPECT().Do(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, operation func() error) error {
-					return operation()
-				}).Times(1)
-				mockFindRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(existingMetrics, nil).Times(1)
-				mockSaveRepo.EXPECT().Save(gomock.Any(), gomock.Any()).Return(nil).Times(1)
-			},
-			metrics:       []*domain.Metric{metric},
-			expectedError: nil,
-			expectedDelta: 15,
-		},
-		{
-			name: "should return error if Find fails",
-			mockSetup: func() {
-				mockUnitOfWork.EXPECT().Do(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, operation func() error) error {
-					return operation()
-				}).Times(1)
-				mockFindRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(nil, ErrMetricIsNotUpdated).Times(1)
-			},
-			metrics:       []*domain.Metric{metric},
-			expectedError: ErrMetricIsNotUpdated,
-			expectedDelta: 0,
-		},
-		{
-			name: "should return error if Save fails",
-			mockSetup: func() {
-				mockUnitOfWork.EXPECT().Do(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, operation func() error) error {
-					return operation()
-				}).Times(1)
-				mockFindRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(existingMetrics, nil).Times(1)
-				mockSaveRepo.EXPECT().Save(gomock.Any(), gomock.Any()).Return(ErrMetricIsNotUpdated).Times(1)
-			},
-			metrics:       []*domain.Metric{metric},
-			expectedError: ErrMetricIsNotUpdated,
-			expectedDelta: 0,
-		},
+func TestUpdate_ExistingMetricsNil(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockSaveRepo := services.NewMockMetricUpdateSaveRepository(ctrl)
+	mockFindRepo := services.NewMockMetricUpdateFindRepository(ctrl)
+	mockUnitOfWork := services.NewMockUnitOfWork(ctrl)
+	metrics := []*domain.Metric{
+		{MetricID: domain.MetricID{ID: "1", Type: domain.Counter}, Delta: new(int64)},
 	}
+	mockUnitOfWork.EXPECT().Do(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, operation func(tx *sql.Tx) error) error {
+		return operation(nil)
+	}).Times(1)
+	mockFindRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(nil, nil).Times(1)
+	mockSaveRepo.EXPECT().Save(gomock.Any(), metrics).Return(nil).Times(1)
+	service := services.NewMetricUpdateService(mockSaveRepo, mockFindRepo, mockUnitOfWork)
+	result, err := service.Update(context.Background(), metrics)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Len(t, result, 1)
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.mockSetup()
-			updatedMetrics, err := service.Update(context.Background(), tt.metrics)
-			if tt.expectedError != nil {
-				require.Error(t, err)
-				assert.Equal(t, tt.expectedError, err)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, 1, len(updatedMetrics))
-				assert.Equal(t, tt.expectedDelta, *updatedMetrics[0].Delta)
-			}
-		})
+func TestUpdate_Failure_FindError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockSaveRepo := services.NewMockMetricUpdateSaveRepository(ctrl)
+	mockFindRepo := services.NewMockMetricUpdateFindRepository(ctrl)
+	mockUnitOfWork := services.NewMockUnitOfWork(ctrl)
+	metrics := []*domain.Metric{
+		{MetricID: domain.MetricID{ID: "1", Type: domain.Counter}, Delta: new(int64)},
 	}
+	mockUnitOfWork.EXPECT().Do(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, operation func(tx *sql.Tx) error) error {
+		return operation(nil)
+	}).Times(1)
+	mockFindRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(nil, e.New("find error")).Times(1)
+	service := services.NewMetricUpdateService(mockSaveRepo, mockFindRepo, mockUnitOfWork)
+	result, err := service.Update(context.Background(), metrics)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.EqualError(t, err, "find error")
+}
+
+func TestUpdate_Failure_SaveError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mockSaveRepo := services.NewMockMetricUpdateSaveRepository(ctrl)
+	mockFindRepo := services.NewMockMetricUpdateFindRepository(ctrl)
+	mockUnitOfWork := services.NewMockUnitOfWork(ctrl)
+	metrics := []*domain.Metric{
+		{MetricID: domain.MetricID{ID: "1", Type: domain.Counter}, Delta: new(int64)},
+	}
+	mockUnitOfWork.EXPECT().Do(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, operation func(tx *sql.Tx) error) error {
+		return operation(nil)
+	}).Times(1)
+	mockFindRepo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(map[domain.MetricID]*domain.Metric{
+		{ID: "1", Type: domain.Counter}: {MetricID: domain.MetricID{ID: "1", Type: domain.Counter}, Delta: new(int64)},
+	}, nil).Times(1)
+	mockSaveRepo.EXPECT().Save(gomock.Any(), metrics).Return(e.New("save error")).Times(1)
+	service := services.NewMetricUpdateService(mockSaveRepo, mockFindRepo, mockUnitOfWork)
+	result, err := service.Update(context.Background(), metrics)
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.EqualError(t, err, errors.ErrMetricIsNotUpdated.Error())
 }

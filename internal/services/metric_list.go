@@ -2,8 +2,8 @@ package services
 
 import (
 	"context"
-	"errors"
 	"go-metrics/internal/domain"
+	"go-metrics/internal/errors"
 	"sort"
 )
 
@@ -23,16 +23,12 @@ func NewMetricListService(
 	}
 }
 
-var (
-	ErrMetricListInternal = errors.New("internal error")
-)
-
 func (s *MetricListService) List(
 	ctx context.Context,
 ) ([]*domain.Metric, error) {
 	metricsMap, err := s.findRepo.Find(ctx, []*domain.MetricID{})
 	if err != nil {
-		return nil, ErrMetricListInternal
+		return nil, errors.ErrMetricListInternal
 	}
 	var metrics []*domain.Metric
 	for _, metric := range metricsMap {

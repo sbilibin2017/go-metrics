@@ -11,17 +11,11 @@ type MetricMemoryFindRepository struct {
 	mu   sync.Mutex
 }
 
-func NewMetricMemoryFindRepository(
-	data map[domain.MetricID]*domain.Metric,
-) *MetricMemoryFindRepository {
-	return &MetricMemoryFindRepository{
-		data: data,
-	}
+func NewMetricMemoryFindRepository(data map[domain.MetricID]*domain.Metric) *MetricMemoryFindRepository {
+	return &MetricMemoryFindRepository{data: data}
 }
 
-func (repo *MetricMemoryFindRepository) Find(
-	ctx context.Context, filters []*domain.MetricID,
-) (map[domain.MetricID]*domain.Metric, error) {
+func (repo *MetricMemoryFindRepository) Find(ctx context.Context, filters []*domain.MetricID) (map[domain.MetricID]*domain.Metric, error) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	result := make(map[domain.MetricID]*domain.Metric)
@@ -29,12 +23,12 @@ func (repo *MetricMemoryFindRepository) Find(
 		for key, value := range repo.data {
 			result[key] = value
 		}
-	} else {
-		for _, filter := range filters {
-			if filter != nil {
-				if metric, found := repo.data[*filter]; found {
-					result[*filter] = metric
-				}
+		return result, nil
+	}
+	for _, filter := range filters {
+		if filter != nil {
+			if metric, found := repo.data[*filter]; found {
+				result[*filter] = metric
 			}
 		}
 	}

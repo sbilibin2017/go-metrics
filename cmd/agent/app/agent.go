@@ -6,8 +6,9 @@ import (
 	"context"
 	"encoding/json"
 	"go-metrics/internal/domain"
-	"go-metrics/internal/logger"
+	"go-metrics/pkg/log"
 	"math/rand"
+	"net/http"
 	"runtime"
 	"strings"
 	"time"
@@ -37,17 +38,17 @@ func (ma *MetricAgent) Start(ctx context.Context) error {
 		select {
 		case <-tickerPoll.C:
 			metrics = ma.collectMetrics(metrics)
-			logger.Logger.Infow("Metrics collected", "metrics_count", len(metrics))
+			log.Info("Metrics collected", "metrics_count", len(metrics))
 		case <-tickerReport.C:
 			err := ma.sendMetrics(ctx, metrics)
 			if err != nil {
-				logger.Logger.Errorw("Failed to send metrics", "error", err)
+				log.Error("Failed to send metrics", "error", err)
 			} else {
-				logger.Logger.Infow("Metrics sent successfully", "metrics_count", len(metrics))
+				log.Info("Metrics sent successfully", "metrics_count", len(metrics))
 			}
 			metrics = nil
 		case <-ctx.Done():
-			logger.Logger.Info("Shutting down metric agent")
+			log.Info("Shutting down metric agent")
 			return nil
 		}
 	}
@@ -64,34 +65,34 @@ func (ma *MetricAgent) collectGaugeMetrics(metrics []domain.Metric) []domain.Met
 	runtime.ReadMemStats(&memStats)
 	float64ptr := func(value float64) *float64 { return &value }
 	metrics = append(metrics, []domain.Metric{
-		{ID: "Alloc", Type: domain.Gauge, Value: float64ptr(float64(memStats.Alloc))},
-		{ID: "BuckHashSys", Type: domain.Gauge, Value: float64ptr(float64(memStats.BuckHashSys))},
-		{ID: "Frees", Type: domain.Gauge, Value: float64ptr(float64(memStats.Frees))},
-		{ID: "GCCPUFraction", Type: domain.Gauge, Value: &memStats.GCCPUFraction},
-		{ID: "GCSys", Type: domain.Gauge, Value: float64ptr(float64(memStats.GCSys))},
-		{ID: "HeapAlloc", Type: domain.Gauge, Value: float64ptr(float64(memStats.HeapAlloc))},
-		{ID: "HeapIdle", Type: domain.Gauge, Value: float64ptr(float64(memStats.HeapIdle))},
-		{ID: "HeapInuse", Type: domain.Gauge, Value: float64ptr(float64(memStats.HeapInuse))},
-		{ID: "HeapObjects", Type: domain.Gauge, Value: float64ptr(float64(memStats.HeapObjects))},
-		{ID: "HeapReleased", Type: domain.Gauge, Value: float64ptr(float64(memStats.HeapReleased))},
-		{ID: "HeapSys", Type: domain.Gauge, Value: float64ptr(float64(memStats.HeapSys))},
-		{ID: "LastGC", Type: domain.Gauge, Value: float64ptr(float64(memStats.LastGC))},
-		{ID: "Lookups", Type: domain.Gauge, Value: float64ptr(float64(memStats.Lookups))},
-		{ID: "MCacheInuse", Type: domain.Gauge, Value: float64ptr(float64(memStats.MCacheInuse))},
-		{ID: "MCacheSys", Type: domain.Gauge, Value: float64ptr(float64(memStats.MCacheSys))},
-		{ID: "MSpanInuse", Type: domain.Gauge, Value: float64ptr(float64(memStats.MSpanInuse))},
-		{ID: "MSpanSys", Type: domain.Gauge, Value: float64ptr(float64(memStats.MSpanSys))},
-		{ID: "Mallocs", Type: domain.Gauge, Value: float64ptr(float64(memStats.Mallocs))},
-		{ID: "NextGC", Type: domain.Gauge, Value: float64ptr(float64(memStats.NextGC))},
-		{ID: "NumForcedGC", Type: domain.Gauge, Value: float64ptr(float64(memStats.NumForcedGC))},
-		{ID: "NumGC", Type: domain.Gauge, Value: float64ptr(float64(memStats.NumGC))},
-		{ID: "OtherSys", Type: domain.Gauge, Value: float64ptr(float64(memStats.OtherSys))},
-		{ID: "PauseTotalNs", Type: domain.Gauge, Value: float64ptr(float64(memStats.PauseTotalNs))},
-		{ID: "StackInuse", Type: domain.Gauge, Value: float64ptr(float64(memStats.StackInuse))},
-		{ID: "StackSys", Type: domain.Gauge, Value: float64ptr(float64(memStats.StackSys))},
-		{ID: "Sys", Type: domain.Gauge, Value: float64ptr(float64(memStats.Sys))},
-		{ID: "TotalAlloc", Type: domain.Gauge, Value: float64ptr(float64(memStats.TotalAlloc))},
-		{ID: "RandomValue", Type: domain.Gauge, Value: float64ptr(rand.Float64())},
+		{MetricID: domain.MetricID{ID: "Alloc", Type: domain.Gauge}, Value: float64ptr(float64(memStats.Alloc))},
+		{MetricID: domain.MetricID{ID: "BuckHashSys", Type: domain.Gauge}, Value: float64ptr(float64(memStats.BuckHashSys))},
+		{MetricID: domain.MetricID{ID: "Frees", Type: domain.Gauge}, Value: float64ptr(float64(memStats.Frees))},
+		{MetricID: domain.MetricID{ID: "GCCPUFraction", Type: domain.Gauge}, Value: &memStats.GCCPUFraction},
+		{MetricID: domain.MetricID{ID: "GCSys", Type: domain.Gauge}, Value: float64ptr(float64(memStats.GCSys))},
+		{MetricID: domain.MetricID{ID: "HeapAlloc", Type: domain.Gauge}, Value: float64ptr(float64(memStats.HeapAlloc))},
+		{MetricID: domain.MetricID{ID: "HeapIdle", Type: domain.Gauge}, Value: float64ptr(float64(memStats.HeapIdle))},
+		{MetricID: domain.MetricID{ID: "HeapInuse", Type: domain.Gauge}, Value: float64ptr(float64(memStats.HeapInuse))},
+		{MetricID: domain.MetricID{ID: "HeapObjects", Type: domain.Gauge}, Value: float64ptr(float64(memStats.HeapObjects))},
+		{MetricID: domain.MetricID{ID: "HeapReleased", Type: domain.Gauge}, Value: float64ptr(float64(memStats.HeapReleased))},
+		{MetricID: domain.MetricID{ID: "HeapSys", Type: domain.Gauge}, Value: float64ptr(float64(memStats.HeapSys))},
+		{MetricID: domain.MetricID{ID: "LastGC", Type: domain.Gauge}, Value: float64ptr(float64(memStats.LastGC))},
+		{MetricID: domain.MetricID{ID: "Lookups", Type: domain.Gauge}, Value: float64ptr(float64(memStats.Lookups))},
+		{MetricID: domain.MetricID{ID: "MCacheInuse", Type: domain.Gauge}, Value: float64ptr(float64(memStats.MCacheInuse))},
+		{MetricID: domain.MetricID{ID: "MCacheSys", Type: domain.Gauge}, Value: float64ptr(float64(memStats.MCacheSys))},
+		{MetricID: domain.MetricID{ID: "MSpanInuse", Type: domain.Gauge}, Value: float64ptr(float64(memStats.MSpanInuse))},
+		{MetricID: domain.MetricID{ID: "MSpanSys", Type: domain.Gauge}, Value: float64ptr(float64(memStats.MSpanSys))},
+		{MetricID: domain.MetricID{ID: "Mallocs", Type: domain.Gauge}, Value: float64ptr(float64(memStats.Mallocs))},
+		{MetricID: domain.MetricID{ID: "NextGC", Type: domain.Gauge}, Value: float64ptr(float64(memStats.NextGC))},
+		{MetricID: domain.MetricID{ID: "NumForcedGC", Type: domain.Gauge}, Value: float64ptr(float64(memStats.NumForcedGC))},
+		{MetricID: domain.MetricID{ID: "NumGC", Type: domain.Gauge}, Value: float64ptr(float64(memStats.NumGC))},
+		{MetricID: domain.MetricID{ID: "OtherSys", Type: domain.Gauge}, Value: float64ptr(float64(memStats.OtherSys))},
+		{MetricID: domain.MetricID{ID: "PauseTotalNs", Type: domain.Gauge}, Value: float64ptr(float64(memStats.PauseTotalNs))},
+		{MetricID: domain.MetricID{ID: "StackInuse", Type: domain.Gauge}, Value: float64ptr(float64(memStats.StackInuse))},
+		{MetricID: domain.MetricID{ID: "StackSys", Type: domain.Gauge}, Value: float64ptr(float64(memStats.StackSys))},
+		{MetricID: domain.MetricID{ID: "Sys", Type: domain.Gauge}, Value: float64ptr(float64(memStats.Sys))},
+		{MetricID: domain.MetricID{ID: "TotalAlloc", Type: domain.Gauge}, Value: float64ptr(float64(memStats.TotalAlloc))},
+		{MetricID: domain.MetricID{ID: "RandomValue", Type: domain.Gauge}, Value: float64ptr(rand.Float64())},
 	}...)
 	return metrics
 }
@@ -99,9 +100,8 @@ func (ma *MetricAgent) collectGaugeMetrics(metrics []domain.Metric) []domain.Met
 func (ma *MetricAgent) collectCounterMetrics(metrics []domain.Metric) []domain.Metric {
 	int64ptr := func(value int64) *int64 { return &value }
 	metrics = append(metrics, domain.Metric{
-		ID:    "PollCount",
-		Type:  domain.Counter,
-		Delta: int64ptr(1),
+		MetricID: domain.MetricID{ID: "PollCount", Type: domain.Counter},
+		Delta:    int64ptr(1),
 	})
 	return metrics
 }
@@ -116,32 +116,41 @@ func (ma *MetricAgent) sendMetrics(ctx context.Context, metrics []domain.Metric)
 	address := normalizeAddress(ma.config.Address)
 	for _, metric := range metrics {
 		url := address + "/update/"
-		var buf bytes.Buffer
-		gzipWriter := gzip.NewWriter(&buf)
-		body, err := json.Marshal(metric)
+		body, err := compress(metric)
 		if err != nil {
 			continue
 		}
-		_, err = gzipWriter.Write(body)
-		if err != nil {
-			continue
-		}
-		err = gzipWriter.Close()
-		if err != nil {
-			continue
-		}
+
 		resp, err := ma.client.R().
 			SetContext(ctx).
 			SetHeader("Content-Type", "application/json").
 			SetHeader("Content-Encoding", "gzip").
-			SetBody(buf.Bytes()).
+			SetBody(body).
 			Post(url)
 		if err != nil {
 			continue
 		}
-		if resp.StatusCode() != 200 {
+		if resp.StatusCode() != http.StatusOK {
 			continue
 		}
 	}
 	return nil
+}
+
+func compress(metric domain.Metric) ([]byte, error) {
+	var buf bytes.Buffer
+	gzipWriter := gzip.NewWriter(&buf)
+	body, err := json.Marshal(metric)
+	if err != nil {
+		return nil, err
+	}
+	_, err = gzipWriter.Write(body)
+	if err != nil {
+		return nil, err
+	}
+	err = gzipWriter.Close()
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

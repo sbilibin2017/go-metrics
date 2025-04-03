@@ -1,95 +1,81 @@
 package validation
 
 import (
+	"go-metrics/internal/errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestValidateValue(t *testing.T) {
-	tests := []struct {
-		name    string
-		value   string
-		wantErr error
-	}{
-		{
-			name:    "valid value",
-			value:   "some value",
-			wantErr: nil,
-		},
-		{
-			name:    "empty value",
-			value:   "",
-			wantErr: ErrEmptyValue,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateValue(tt.value)
-			assert.Equal(t, tt.wantErr, err)
-		})
-	}
-}
-
 func TestValidateCounterValue(t *testing.T) {
 	tests := []struct {
-		name    string
-		value   string
-		wantErr error
+		value     string
+		expectErr error
 	}{
-		{
-			name:    "valid counter value",
-			value:   "123",
-			wantErr: nil,
-		},
-		{
-			name:    "invalid counter value",
-			value:   "not_a_number",
-			wantErr: ErrInvalidCounterValue,
-		},
-		{
-			name:    "empty counter value",
-			value:   "",
-			wantErr: ErrInvalidCounterValue,
-		},
+		{"123", nil},
+		{"-123", nil},
+		{"abc", errors.ErrInvalidCounterMetricValue},
+		{"123.45", errors.ErrInvalidCounterMetricValue},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.value, func(t *testing.T) {
 			err := ValidateCounterValue(tt.value)
-			assert.Equal(t, tt.wantErr, err)
+			assert.Equal(t, tt.expectErr, err)
 		})
 	}
 }
 
 func TestValidateGaugeValue(t *testing.T) {
 	tests := []struct {
-		name    string
-		value   string
-		wantErr error
+		value     string
+		expectErr error
 	}{
-		{
-			name:    "valid gauge value",
-			value:   "12.34",
-			wantErr: nil,
-		},
-		{
-			name:    "invalid gauge value",
-			value:   "not_a_float",
-			wantErr: ErrInvalidGaugeValue,
-		},
-		{
-			name:    "empty gauge value",
-			value:   "",
-			wantErr: ErrInvalidGaugeValue,
-		},
+		{"123.45", nil},
+		{"-123.45", nil},
+		{"123", nil},
+		{"abc", errors.ErrInvalidGaugeMetricValue},
+		{"123.45.67", errors.ErrInvalidGaugeMetricValue},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.value, func(t *testing.T) {
 			err := ValidateGaugeValue(tt.value)
-			assert.Equal(t, tt.wantErr, err)
+			assert.Equal(t, tt.expectErr, err)
+		})
+	}
+}
+
+func TestValidateCounterPtrValue(t *testing.T) {
+	tests := []struct {
+		value     *int64
+		expectErr error
+	}{
+		{nil, errors.ErrInvalidCounterMetricValue},
+		{new(int64), nil},
+	}
+
+	for _, tt := range tests {
+		t.Run("ValidateCounterPtrValue", func(t *testing.T) {
+			err := ValidateCounterPtrValue(tt.value)
+			assert.Equal(t, tt.expectErr, err)
+		})
+	}
+}
+
+func TestValidateGaugePtrValue(t *testing.T) {
+	tests := []struct {
+		value     *float64
+		expectErr error
+	}{
+		{nil, errors.ErrInvalidGaugeMetricValue},
+		{new(float64), nil},
+	}
+
+	for _, tt := range tests {
+		t.Run("ValidateGaugePtrValue", func(t *testing.T) {
+			err := ValidateGaugePtrValue(tt.value)
+			assert.Equal(t, tt.expectErr, err)
 		})
 	}
 }

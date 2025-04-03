@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"go-metrics/internal/domain"
+	"strings"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -20,19 +21,20 @@ func NewMetricDBFindRepository(db *sql.DB) *MetricDBFindRepository {
 var baseMetricFindQuery = "SELECT id, type, delta, value FROM metrics"
 
 func buildMetricFindQuery(filters []*domain.MetricID) (string, []any) {
-	query := baseMetricFindQuery
-	args := []interface{}{}
+	var sb strings.Builder
+	sb.WriteString(baseMetricFindQuery)
+	args := make([]any, 0, len(filters)*2)
 	if len(filters) > 0 {
-		query += " WHERE "
+		sb.WriteString(" WHERE ")
 		for i, filter := range filters {
 			if i > 0 {
-				query += " OR "
+				sb.WriteString(" OR ")
 			}
-			query += fmt.Sprintf("(id = $%d AND type = $%d)", i*2+1, i*2+2)
+			sb.WriteString(fmt.Sprintf("(id = $%d AND type = $%d)", i*2+1, i*2+2))
 			args = append(args, filter.ID, filter.Type)
 		}
 	}
-	return query, args
+	return sb.String(), args
 }
 
 func (repo *MetricDBFindRepository) Find(ctx context.Context, filters []*domain.MetricID) (map[domain.MetricID]*domain.Metric, error) {
