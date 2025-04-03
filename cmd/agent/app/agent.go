@@ -7,8 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-metrics/internal/domain"
+	"go-metrics/internal/errors"
 	"go-metrics/pkg/log"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 	"runtime"
 	"strings"
@@ -124,21 +125,37 @@ func (ma *MetricAgent) sendMetrics(ctx context.Context, metrics []domain.Metric)
 	if err != nil {
 		return fmt.Errorf("failed to compress metrics: %w", err)
 	}
-	resp, err := ma.client.R().
-		SetContext(ctx).
-		SetHeader("Content-Type", "application/json").
-		SetHeader("Content-Encoding", "gzip").
-		SetBody(compressedBody).
-		Post(url)
-
-	if err != nil {
-		return fmt.Errorf("failed to send metrics: %w", err)
+	attempts := 0
+	retryIntervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+	for attempts < len(retryIntervals)+1 {
+		resp, err := ma.client.R().
+			SetContext(ctx).
+			SetHeader("Content-Type", "application/json").
+			SetHeader("Content-Encoding", "gzip").
+			SetBody(compressedBody).
+			Post(url)
+		if err != nil {
+			if errors.IsRetriableError(err) && attempts < len(retryIntervals) {
+				log.Info("Temporary error, retrying", "attempt", attempts+1, "error", err)
+				time.Sleep(retryIntervals[attempts])
+				attempts++
+				continue
+			}
+			return fmt.Errorf("failed to send metrics: %w", err)
+		}
+		if resp.StatusCode() != http.StatusOK {
+			if attempts < len(retryIntervals) {
+				log.Info("Non-OK status, retrying", "status", resp.StatusCode(), "attempt", attempts+1)
+				time.Sleep(retryIntervals[attempts])
+				attempts++
+				continue
+			}
+			return fmt.Errorf("failed to send metrics, status code: %d", resp.StatusCode())
+		}
+		log.Info("Metrics sent successfully", "metrics_count", len(metrics))
+		return nil
 	}
-	if resp.StatusCode() != http.StatusOK {
-		return fmt.Errorf("failed to send metrics, status code: %d", resp.StatusCode())
-	}
-	log.Info("Metrics sent successfully", "metrics_count", len(metrics))
-	return nil
+	return fmt.Errorf("failed to send metrics after multiple attempts")
 }
 
 func compress(data []byte) ([]byte, error) {
