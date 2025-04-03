@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"fmt"
 	"go-metrics/internal/domain"
 	"go-metrics/pkg/log"
 	"math/rand"
@@ -114,43 +115,42 @@ func (ma *MetricAgent) sendMetrics(ctx context.Context, metrics []domain.Metric)
 		return address
 	}
 	address := normalizeAddress(ma.config.Address)
-	for _, metric := range metrics {
-		url := address + "/update/"
-		body, err := compress(metric)
-		if err != nil {
-			continue
-		}
-
-		resp, err := ma.client.R().
-			SetContext(ctx).
-			SetHeader("Content-Type", "application/json").
-			SetHeader("Content-Encoding", "gzip").
-			SetBody(body).
-			Post(url)
-		if err != nil {
-			continue
-		}
-		if resp.StatusCode() != http.StatusOK {
-			continue
-		}
+	url := address + "/updates/"
+	body, err := json.Marshal(metrics)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metrics: %w", err)
 	}
+	compressedBody, err := compress(body)
+	if err != nil {
+		return fmt.Errorf("failed to compress metrics: %w", err)
+	}
+	resp, err := ma.client.R().
+		SetContext(ctx).
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Content-Encoding", "gzip").
+		SetBody(compressedBody).
+		Post(url)
+
+	if err != nil {
+		return fmt.Errorf("failed to send metrics: %w", err)
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return fmt.Errorf("failed to send metrics, status code: %d", resp.StatusCode())
+	}
+	log.Info("Metrics sent successfully", "metrics_count", len(metrics))
 	return nil
 }
 
-func compress(metric domain.Metric) ([]byte, error) {
+func compress(data []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	gzipWriter := gzip.NewWriter(&buf)
-	body, err := json.Marshal(metric)
+	_, err := gzipWriter.Write(data)
 	if err != nil {
-		return nil, err
-	}
-	_, err = gzipWriter.Write(body)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to write to gzip: %w", err)
 	}
 	err = gzipWriter.Close()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
 	}
 	return buf.Bytes(), nil
 }
