@@ -5,6 +5,7 @@ type Config struct {
 	PollInterval   int
 	ReportInterval int
 	Key            string
+	RateLimit      int
 }
 
 func (c *Config) GetAddress() string {
