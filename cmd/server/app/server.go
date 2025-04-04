@@ -31,6 +31,7 @@ func NewServer(config *Config, container *Container, worker *Worker) *Server {
 	metricUpdatesHandler := handlers.MetricUpdatesBodyHandler(container.MetricUpdatesBodyUsecase)
 
 	metricRouter := routers.NewMetricRouter(
+		config,
 		metricUpdateHandler,
 		metricUpdateBodyHandler,
 		metricUpdatesHandler,

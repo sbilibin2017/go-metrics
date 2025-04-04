@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"go-metrics/internal/domain"
@@ -118,15 +120,23 @@ func (ma *MetricAgent) sendMetrics(ctx context.Context, metrics []domain.Metric)
 	if err != nil {
 		return fmt.Errorf("failed to compress metrics: %w", err)
 	}
+	key := ma.config.Key
+	var hash string
+	if key != "" {
+		hash = ma.computeHMAC(key)
+	}
 	attempts := 0
 	retryIntervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
 	for attempts < len(retryIntervals)+1 {
-		resp, err := ma.client.R().
+		req := ma.client.R().
 			SetContext(ctx).
 			SetHeader("Content-Type", "application/json").
 			SetHeader("Content-Encoding", "gzip").
-			SetBody(compressedBody).
-			Post(url)
+			SetBody(compressedBody)
+		if hash != "" {
+			req.SetHeader("HashSHA256", hash)
+		}
+		resp, err := req.Post(url)
 		if err != nil {
 			if errors.IsRetriableError(err) && attempts < len(retryIntervals) {
 				log.Info("Temporary error, retrying", "attempt", attempts+1, "error", err)
@@ -149,6 +159,12 @@ func (ma *MetricAgent) sendMetrics(ctx context.Context, metrics []domain.Metric)
 		return nil
 	}
 	return fmt.Errorf("failed to send metrics after multiple attempts")
+}
+
+func (ma *MetricAgent) computeHMAC(key string) string {
+	hash := sha256.New()
+	hash.Write([]byte(key))
+	return hex.EncodeToString(hash.Sum(nil))
 }
 
 func (ma *MetricAgent) getURL(address string) string {

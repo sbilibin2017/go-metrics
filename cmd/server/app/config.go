@@ -6,6 +6,7 @@ type Config struct {
 	StoreInterval   int
 	FileStoragePath string
 	Restore         bool
+	Key             string
 }
 
 func (c *Config) GetAddress() string {
@@ -18,4 +19,8 @@ func (c *Config) GetFileStoragePath() string {
 
 func (c *Config) GetDatabaseDSN() string {
 	return c.DatabaseDSN
+}
+
+func (c *Config) GetKey() string {
+	return c.Key
 }
