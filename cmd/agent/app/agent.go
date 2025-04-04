@@ -15,31 +15,20 @@ import (
 	"net/http"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-resty/resty/v2"
-
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/mem"
 )
 
 type MetricAgent struct {
-	config      *Config
-	client      *resty.Client
-	metricsChan chan []domain.Metric
-	workerPool  chan struct{}
-	workerCount int
-	mu          sync.Mutex
+	config *Config
+	client *resty.Client
 }
 
 func NewMetricAgent(config *Config) *MetricAgent {
 	return &MetricAgent{
-		config:      config,
-		client:      resty.New(),
-		metricsChan: make(chan []domain.Metric, config.RateLimit),
-		workerPool:  make(chan struct{}, config.RateLimit),
-		workerCount: config.RateLimit,
+		config: config,
+		client: resty.New(),
 	}
 }
 
@@ -49,21 +38,19 @@ func (ma *MetricAgent) Start(ctx context.Context) error {
 	defer tickerPoll.Stop()
 	defer tickerReport.Stop()
 	var metrics []domain.Metric
-	for i := 0; i < ma.workerCount; i++ {
-		go ma.worker(ctx)
-	}
 	for {
 		select {
 		case <-tickerPoll.C:
-			ma.mu.Lock()
 			metrics = ma.collectMetrics(metrics)
-			ma.mu.Unlock()
 			log.Info("Metrics collected", "metrics_count", len(metrics))
 		case <-tickerReport.C:
-			ma.mu.Lock()
-			ma.metricsChan <- metrics
+			err := ma.sendMetrics(ctx, metrics)
+			if err != nil {
+				log.Error("Failed to send metrics", "error", err)
+			} else {
+				log.Info("Metrics sent successfully", "metrics_count", len(metrics))
+			}
 			metrics = nil
-			ma.mu.Unlock()
 		case <-ctx.Done():
 			log.Info("Shutting down metric agent")
 			return nil
@@ -71,21 +58,9 @@ func (ma *MetricAgent) Start(ctx context.Context) error {
 	}
 }
 
-func (ma *MetricAgent) worker(ctx context.Context) {
-	for metrics := range ma.metricsChan {
-		ma.workerPool <- struct{}{}
-		err := ma.sendMetrics(ctx, metrics)
-		if err != nil {
-			log.Error("Failed to send metrics", "error", err)
-		}
-		<-ma.workerPool
-	}
-}
-
 func (ma *MetricAgent) collectMetrics(metrics []domain.Metric) []domain.Metric {
 	metrics = ma.collectCounterMetrics(metrics)
 	metrics = ma.collectGaugeMetrics(metrics)
-	metrics = ma.collectAdditionalGaugeMetrics(metrics)
 	return metrics
 }
 
@@ -123,40 +98,6 @@ func (ma *MetricAgent) collectGaugeMetrics(metrics []domain.Metric) []domain.Met
 		{MetricID: domain.MetricID{ID: "TotalAlloc", Type: domain.Gauge}, Value: float64ptr(float64(memStats.TotalAlloc))},
 		{MetricID: domain.MetricID{ID: "RandomValue", Type: domain.Gauge}, Value: float64ptr(rand.Float64())},
 	}...)
-	return metrics
-}
-
-func (ma *MetricAgent) collectAdditionalGaugeMetrics(metrics []domain.Metric) []domain.Metric {
-	vmStat, err := mem.VirtualMemory()
-	if err != nil {
-		log.Error("Failed to get virtual memory stats", "error", err)
-		return metrics
-	}
-	float64ptr := func(value float64) *float64 { return &value }
-	metrics = append(metrics, []domain.Metric{
-		{MetricID: domain.MetricID{ID: "TotalMemory", Type: domain.Gauge}, Value: float64ptr(float64(vmStat.Total))},
-		{MetricID: domain.MetricID{ID: "FreeMemory", Type: domain.Gauge}, Value: float64ptr(float64(vmStat.Free))},
-	}...)
-	cpuPercent, err := cpu.Percent(time.Second, false)
-	if err != nil {
-		log.Error("Failed to get CPU utilization", "error", err)
-		return metrics
-	}
-	metrics = append(metrics, domain.Metric{
-		MetricID: domain.MetricID{ID: "CPUutilization1", Type: domain.Gauge},
-		Value:    float64ptr(cpuPercent[0]),
-	})
-	coreCPUPercent, err := cpu.Percent(time.Second, true)
-	if err != nil {
-		log.Error("Failed to get per-core CPU utilization", "error", err)
-		return metrics
-	}
-	for i, util := range coreCPUPercent {
-		metrics = append(metrics, domain.Metric{
-			MetricID: domain.MetricID{ID: fmt.Sprintf("CPUutilization%d", i+1), Type: domain.Gauge},
-			Value:    float64ptr(util),
-		})
-	}
 	return metrics
 }
 
