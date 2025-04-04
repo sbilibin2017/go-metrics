@@ -19,24 +19,28 @@ const (
 	FlagFileStoragePath = "file-storage-path"
 	FlagRestore         = "restore"
 	FlagDatabaseDSN     = "database-dsn"
+	FlagKey             = "key"
 
 	ShortFlagAddress         = "a"
 	ShortFlagStoreInterval   = "i"
 	ShortFlagFileStoragePath = "f"
 	ShortFlagRestore         = "r"
 	ShortFlagDatabaseDSN     = "d"
+	ShortFlagKey             = "k"
 
 	EnvAddress         = "ADDRESS"
 	EnvStoreInterval   = "STORE_INTERVAL"
 	EnvFileStoragePath = "FILE_STORAGE_PATH"
 	EnvRestore         = "RESTORE"
 	EnvDatabaseDSN     = "DATABASE_DSN"
+	EnvKey             = "KEY"
 
 	DescriptionAddress         = "Address of the HTTP server endpoint"
 	DescriptionStoreInterval   = "Interval in seconds to store metrics to disk"
 	DescriptionFileStoragePath = "Path to the file to store metrics"
 	DescriptionRestore         = "Whether to load previously saved values on server startup"
 	DescriptionDatabaseDSN     = "Database DSN"
+	DescriptionKey             = "Secret key for data signing"
 )
 
 func NewCommand() *cobra.Command {
@@ -53,6 +57,7 @@ func NewCommand() *cobra.Command {
 				StoreInterval:   viper.GetInt(EnvStoreInterval),
 				FileStoragePath: viper.GetString(EnvFileStoragePath),
 				Restore:         viper.GetBool(EnvRestore),
+				Key:             viper.GetString(EnvKey),
 			}
 			container, err := NewContainer(config)
 			if err != nil {
@@ -71,12 +76,14 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringP(FlagFileStoragePath, ShortFlagFileStoragePath, DefaultFileStoragePath, DescriptionFileStoragePath)
 	cmd.PersistentFlags().BoolP(FlagRestore, ShortFlagRestore, DefaultRestore, DescriptionRestore)
 	cmd.PersistentFlags().StringP(FlagDatabaseDSN, ShortFlagDatabaseDSN, "", DescriptionDatabaseDSN)
+	cmd.PersistentFlags().StringP(FlagKey, ShortFlagKey, "", DescriptionKey)
 
 	viper.BindPFlag(EnvAddress, cmd.PersistentFlags().Lookup(FlagAddress))
 	viper.BindPFlag(EnvStoreInterval, cmd.PersistentFlags().Lookup(FlagStoreInterval))
 	viper.BindPFlag(EnvFileStoragePath, cmd.PersistentFlags().Lookup(FlagFileStoragePath))
 	viper.BindPFlag(EnvRestore, cmd.PersistentFlags().Lookup(FlagRestore))
 	viper.BindPFlag(EnvDatabaseDSN, cmd.PersistentFlags().Lookup(FlagDatabaseDSN))
+	viper.BindPFlag(EnvKey, cmd.PersistentFlags().Lookup(FlagKey))
 
 	return cmd
 }

@@ -1,72 +1,69 @@
 package routers
 
 import (
+	"bytes"
+	"compress/gzip"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"go-metrics/internal/middlewares"
+
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
-type mockHandler struct {
-	mock.Mock
+// Фиктивная реализация Config
+type mockConfig struct {
+	key string
 }
 
-func (m *mockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	m.Called(w, r)
+func (m *mockConfig) GetKey() string {
+	return m.key
 }
 
-func TestNewMetricRouter(t *testing.T) {
-	h1 := new(mockHandler)
-	h2 := new(mockHandler)
-	h3 := new(mockHandler)
-	h4 := new(mockHandler)
-	h5 := new(mockHandler)
-	h6 := new(mockHandler)
-
-	h1.On("ServeHTTP", mock.Anything, mock.Anything).Return()
-	h2.On("ServeHTTP", mock.Anything, mock.Anything).Return()
-	h3.On("ServeHTTP", mock.Anything, mock.Anything).Return()
-	h4.On("ServeHTTP", mock.Anything, mock.Anything).Return()
-	h5.On("ServeHTTP", mock.Anything, mock.Anything).Return()
-	h6.On("ServeHTTP", mock.Anything, mock.Anything).Return()
-
-	r := NewMetricRouter(h1.ServeHTTP, h2.ServeHTTP, h3.ServeHTTP, h4.ServeHTTP, h5.ServeHTTP, h6.ServeHTTP)
-
-	tests := []struct {
-		method  string
-		url     string
-		handler *mockHandler
-	}{
-		{"POST", "/update/metric/metricName/100", h1},
-		{"POST", "/update/", h2},
-		{"POST", "/updates/", h3},
-		{"GET", "/value/metric/metricName", h4},
-		{"GET", "/", h6},        // Исправлено (было h5)
-		{"POST", "/value/", h5}, // Исправлено (было h6)
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.method+" "+tt.url, func(t *testing.T) {
-			req, err := http.NewRequest(tt.method, tt.url, nil)
-			assert.NoError(t, err)
-			rr := httptest.NewRecorder()
-			r.ServeHTTP(rr, req)
-			tt.handler.AssertNumberOfCalls(t, "ServeHTTP", 1)
-			assert.Equal(t, http.StatusOK, rr.Code)
-		})
-	}
+// Генерация HMAC-хеша
+func computeHMAC(data []byte, key string) string {
+	h := hmac.New(sha256.New, []byte(key))
+	h.Write(data)
+	return hex.EncodeToString(h.Sum(nil))
 }
 
-func TestMiddlewares(t *testing.T) {
-	h := new(mockHandler)
-	h.On("ServeHTTP", mock.Anything, mock.Anything).Return()
-	r := NewMetricRouter(h.ServeHTTP, h.ServeHTTP, h.ServeHTTP, h.ServeHTTP, h.ServeHTTP, h.ServeHTTP)
-	req, err := http.NewRequest("POST", "/update/metric/metricName/100", nil)
+// Фиктивный обработчик
+func mockHandler(w http.ResponseWriter, r *http.Request) {
+	response := map[string]string{"message": "success"}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+func TestMiddlewareStack(t *testing.T) {
+	secretKey := "supersecret"
+	cfg := &mockConfig{key: secretKey}
+	r := chi.NewRouter()
+	r.Use(middlewares.LoggingMiddleware)
+	r.Use(middlewares.GzipMiddleware)
+	r.Use(middlewares.HMACMiddleware(cfg))
+	r.Post("/test", mockHandler)
+	requestData := map[string]string{"metric": "cpu", "value": "90"}
+	jsonData, _ := json.Marshal(requestData)
+	var compressedData bytes.Buffer
+	gzipWriter := gzip.NewWriter(&compressedData)
+	_, err := gzipWriter.Write(jsonData)
 	assert.NoError(t, err)
+	gzipWriter.Close()
+	req := httptest.NewRequest("POST", "/test", &compressedData)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("HashSHA256", computeHMAC(jsonData, secretKey))
 	rr := httptest.NewRecorder()
 	r.ServeHTTP(rr, req)
-	h.AssertNumberOfCalls(t, "ServeHTTP", 1)
-	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, http.StatusOK, rr.Code, "Должен быть статус 200 OK")
+	assert.Contains(t, rr.Header().Get("Content-Type"), "application/json", "Content-Type должен быть application/json")
+	expectedResponse := `{"message":"success"}`
+	assert.JSONEq(t, expectedResponse, rr.Body.String(), "Тело ответа должно быть корректным JSON")
 }

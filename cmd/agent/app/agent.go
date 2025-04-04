@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"go-metrics/internal/domain"
-	"go-metrics/internal/errors"
 	"go-metrics/pkg/log"
 	"math/rand/v2"
 	"net/http"
@@ -118,37 +120,40 @@ func (ma *MetricAgent) sendMetrics(ctx context.Context, metrics []domain.Metric)
 	if err != nil {
 		return fmt.Errorf("failed to compress metrics: %w", err)
 	}
-	attempts := 0
-	retryIntervals := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
-	for attempts < len(retryIntervals)+1 {
-		resp, err := ma.client.R().
-			SetContext(ctx).
-			SetHeader("Content-Type", "application/json").
-			SetHeader("Content-Encoding", "gzip").
-			SetBody(compressedBody).
-			Post(url)
+	var hash string
+	if ma.config.Key != "" {
+		hash, err = ma.computeHMAC(body)
 		if err != nil {
-			if errors.IsRetriableError(err) && attempts < len(retryIntervals) {
-				log.Info("Temporary error, retrying", "attempt", attempts+1, "error", err)
-				time.Sleep(retryIntervals[attempts])
-				attempts++
-				continue
-			}
-			return fmt.Errorf("failed to send metrics: %w", err)
+			return fmt.Errorf("failed to compute HMAC: %w", err)
 		}
-		if resp.StatusCode() != http.StatusOK {
-			if attempts < len(retryIntervals) {
-				log.Info("Non-OK status, retrying", "status", resp.StatusCode(), "attempt", attempts+1)
-				time.Sleep(retryIntervals[attempts])
-				attempts++
-				continue
-			}
-			return fmt.Errorf("failed to send metrics, status code: %d", resp.StatusCode())
-		}
-		log.Info("Metrics sent successfully", "metrics_count", len(metrics))
-		return nil
 	}
-	return fmt.Errorf("failed to send metrics after multiple attempts")
+	req := ma.client.R().
+		SetContext(ctx).
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Content-Encoding", "gzip").
+		SetBody(compressedBody)
+
+	if ma.config.Key != "" {
+		req.SetHeader("HashSHA256", hash)
+	}
+	resp, err := req.Post(url)
+	if err != nil {
+		return fmt.Errorf("failed to send metrics: %w", err)
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return fmt.Errorf("failed to send metrics, status code: %d", resp.StatusCode())
+	}
+	log.Info("Metrics sent successfully", "metrics_count", len(metrics))
+	return nil
+}
+
+func (ma *MetricAgent) computeHMAC(data []byte) (string, error) {
+	if ma.config.Key == "" {
+		return "", fmt.Errorf("empty key is not allowed for HMAC")
+	}
+	h := hmac.New(sha256.New, []byte(ma.config.Key))
+	h.Write(data)
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func (ma *MetricAgent) getURL(address string) string {
@@ -165,8 +170,7 @@ func (ma *MetricAgent) compress(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to write to gzip: %w", err)
 	}
-	err = gzipWriter.Close()
-	if err != nil {
+	if err := gzipWriter.Close(); err != nil {
 		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
 	}
 	return buf.Bytes(), nil
