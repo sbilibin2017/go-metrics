@@ -16,18 +16,22 @@ const (
 	FlagAddress        = "address"
 	FlagReportInterval = "report-interval"
 	FlagPollInterval   = "poll-interval"
+	FlagKey            = "key"
 
 	ShortFlagAddress        = "a"
 	ShortFlagReportInterval = "r"
 	ShortFlagPollInterval   = "p"
+	ShortFlagKey            = "k"
 
 	EnvAddress        = "ADDRESS"
 	EnvReportInterval = "REPORT_INTERVAL"
 	EnvPollInterval   = "POLL_INTERVAL"
+	EnvKey            = "KEY"
 
 	DescriptionAddress        = "Address of the HTTP server endpoint"
 	DescriptionReportInterval = "Interval in seconds for sending metrics to the server"
 	DescriptionPollInterval   = "Interval in seconds for polling metrics from the runtime package"
+	DescriptionKey            = "Secret key for data signing"
 )
 
 func NewCommand() *cobra.Command {
@@ -42,6 +46,7 @@ func NewCommand() *cobra.Command {
 				Address:        viper.GetString(EnvAddress),
 				ReportInterval: viper.GetInt(EnvReportInterval),
 				PollInterval:   viper.GetInt(EnvPollInterval),
+				Key:            viper.GetString(EnvKey),
 			}
 			agent := NewMetricAgent(config)
 			ctx, cancel := context.NewContext()
@@ -53,10 +58,12 @@ func NewCommand() *cobra.Command {
 	cmd.PersistentFlags().StringP(FlagAddress, ShortFlagAddress, DefaultAddress, DescriptionAddress)
 	cmd.PersistentFlags().IntP(FlagReportInterval, ShortFlagReportInterval, DefaultReportInterval, DescriptionReportInterval)
 	cmd.PersistentFlags().IntP(FlagPollInterval, ShortFlagPollInterval, DefaultPollInterval, DescriptionPollInterval)
+	cmd.PersistentFlags().StringP(FlagKey, ShortFlagKey, "", DescriptionKey)
 
 	viper.BindPFlag(EnvAddress, cmd.PersistentFlags().Lookup(FlagAddress))
 	viper.BindPFlag(EnvReportInterval, cmd.PersistentFlags().Lookup(FlagReportInterval))
 	viper.BindPFlag(EnvPollInterval, cmd.PersistentFlags().Lookup(FlagPollInterval))
+	viper.BindPFlag(EnvKey, cmd.PersistentFlags().Lookup(FlagKey))
 
 	return cmd
 }
